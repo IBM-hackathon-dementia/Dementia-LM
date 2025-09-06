@@ -1,0 +1,10 @@
+# ëª¨ë“  ?ìŠ¤???Œì¼???€??LFë¥??¬ìš©?˜ë„ë¡??¤ì •
+* text=auto eol=lf
+
+# ?¹ì • ?Œì¼ ?•ì‹???€???¤ì •
+*.{cmd,[cC][mM][dD]} text eol=crlf
+*.{bat,[bB][aA][tT]} text eol=crlf
+*.{ps1,[pP][sS]1} text eol=crlf
+
+# ë°”ì´?ˆë¦¬ ?Œì¼ ?¤ì •
+*.{png,jpg,jpeg,gif,webp,woff,woff2} binary

@@ -1,0 +1,8 @@
+name = "eume-api"
+main = "src/index.ts"
+compatibility_date = "2023-01-01"
+
+# KV 저장소 설정
+kv_namespaces = [
+  { binding = "CONVERSATION_HISTORY", id = "2e4acbcfc1504315afe35ed2bb12a6df", preview_id = "16845856a2cb452c8d08da61294ef5c6" }
+]
