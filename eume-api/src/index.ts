@@ -88,15 +88,32 @@ export default {
 			return await handleImageAnalysis(request, env, corsHeaders);
 		}
 
-		if (!request.headers.get('Content-Type')?.includes('audio')) {
-			return new Response(JSON.stringify({ error: '음성 데이터만 처리할 수 있습니다.' }), {
-				status: 400,
-				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-			});
-		}
-
 		try {
-			const audioData = await request.arrayBuffer();
+			let audioData: ArrayBuffer;
+			
+			// FormData로 전송된 경우 처리
+			const contentType = request.headers.get('Content-Type') || '';
+			if (contentType.includes('multipart/form-data')) {
+				const formData = await request.formData();
+				const audioFile = formData.get('audio') as File;
+				
+				if (!audioFile) {
+					return new Response(JSON.stringify({ error: '음성 파일이 필요합니다.' }), {
+						status: 400,
+						headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+					});
+				}
+				
+				audioData = await audioFile.arrayBuffer();
+			} else if (contentType.includes('audio')) {
+				// 기존 방식 - 직접 오디오 데이터 전송
+				audioData = await request.arrayBuffer();
+			} else {
+				return new Response(JSON.stringify({ error: '음성 데이터만 처리할 수 있습니다.' }), {
+					status: 400,
+					headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+				});
+			}
 
 			const sttResponse = await env.AI.run('@cf/openai/whisper', {
 				audio: [...new Uint8Array(audioData)],

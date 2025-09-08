@@ -17,7 +17,9 @@ interface PhotoSession {
 export default function Home() {
     const [status, setStatus] = useState('idle');
     const [error, setError] = useState('');
-    const [conversations, setConversations] = useState<ConversationMessage[]>([]);
+    const [conversations, setConversations] = useState<ConversationMessage[]>(
+        []
+    );
     const [photoSession, setPhotoSession] = useState<PhotoSession | null>(null);
     const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
 
@@ -82,7 +84,9 @@ export default function Home() {
         imageAnalysis?: string;
     }
 
-    const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePhotoUpload = async (
+        event: React.ChangeEvent<HTMLInputElement>
+    ) => {
         const file = event.target.files?.[0];
         if (!file || !file.type.startsWith('image/')) {
             setError('이미지 파일만 업로드할 수 있어요.');
@@ -103,33 +107,43 @@ export default function Home() {
             const formData = new FormData();
             formData.append('image', file);
 
-            const response = await fetch('http://127.0.0.1:8787/analyze-image', {
-                method: 'POST',
-                headers: {
-                    'X-User-ID': userId
-                },
-                body: formData,
-            });
+            const response = await fetch(
+                'http://127.0.0.1:8787/analyze-image',
+                {
+                    method: 'POST',
+                    headers: {
+                        'X-User-ID': userId,
+                    },
+                    body: formData,
+                }
+            );
 
-            const result = await response.json() as { imageAnalysis: string; error?: string };
+            const result = (await response.json()) as {
+                imageAnalysis: string;
+                error?: string;
+            };
 
             if (!response.ok) {
-                throw new Error(result.error || '이미지 분석 중 오류가 발생했습니다.');
+                throw new Error(
+                    result.error || '이미지 분석 중 오류가 발생했습니다.'
+                );
             }
 
             setPhotoSession({
                 imageUrl,
                 imageAnalysis: result.imageAnalysis,
-                isActive: true
+                isActive: true,
             });
 
             setConversations([]);
             setIsAnalyzingPhoto(false);
             setStatus('idle');
             speak('사진을 보며 함께 이야기해볼까요?');
-
         } catch (err: Error | unknown) {
-            const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다';
+            const errorMessage =
+                err instanceof Error
+                    ? err.message
+                    : '알 수 없는 오류가 발생했습니다';
             setError(`사진 업로드 오류: ${errorMessage}`);
             setIsAnalyzingPhoto(false);
             setStatus('idle');
@@ -146,23 +160,30 @@ export default function Home() {
             }
 
             const headers: Record<string, string> = {
-                'Content-Type': 'audio/webm',
                 'X-User-ID': userId,
-                'X-Photo-Session': photoSession?.isActive ? 'true' : 'false'
+                'X-Photo-Session': photoSession?.isActive ? 'true' : 'false',
             };
 
             // Base64 인코딩으로 한글 텍스트 전송
             if (photoSession?.imageAnalysis) {
-                headers['X-Image-Analysis'] = btoa(unescape(encodeURIComponent(photoSession.imageAnalysis)));
+                headers['X-Image-Analysis'] = btoa(
+                    unescape(encodeURIComponent(photoSession.imageAnalysis))
+                );
             }
 
-            const response = await fetch('http://127.0.0.1:8787', {
-                method: 'POST',
-                headers,
-                body: audioBlob,
-            });
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'audio.webm');
 
-            const result = await response.json() as ApiResponse;
+            const response = await fetch(
+                'http://127.0.0.1:8787',
+                {
+                    method: 'POST',
+                    headers,
+                    body: formData,
+                }
+            );
+
+            const result = (await response.json()) as ApiResponse;
 
             if (!response.ok) {
                 throw new Error(
@@ -171,23 +192,26 @@ export default function Home() {
             }
 
             const timestamp = Date.now();
-            setConversations(prev => [
+            setConversations((prev) => [
                 ...prev,
                 {
                     role: 'user',
                     content: result.userText || '음성 인식 실패',
-                    timestamp: timestamp
+                    timestamp: timestamp,
                 },
                 {
                     role: 'assistant',
                     content: result.responseText,
-                    timestamp: timestamp + 1
-                }
+                    timestamp: timestamp + 1,
+                },
             ]);
 
             speak(result.responseText);
         } catch (err: Error | unknown) {
-            const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다';
+            const errorMessage =
+                err instanceof Error
+                    ? err.message
+                    : '알 수 없는 오류가 발생했습니다';
             setError(`오류가 발생했어요: ${errorMessage}`);
             setStatus('idle');
         }
@@ -218,7 +242,7 @@ export default function Home() {
         if (isAnalyzingPhoto) {
             return '사진을 분석중입니다...';
         }
-        
+
         switch (status) {
             case 'recording':
                 return '듣고 있어요...';
@@ -229,10 +253,11 @@ export default function Home() {
             case 'speaking':
                 return '이음이가 대답하고 있어요...';
             default:
-                return photoSession ? '사진을 보며 대화해보세요' : '아래 버튼을 누르고 말씀해주세요';
+                return photoSession
+                    ? '사진을 보며 대화해보세요'
+                    : '아래 버튼을 누르고 말씀해주세요';
         }
     };
-
 
     return (
         <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-teal-50 to-orange-50 p-6">
@@ -285,7 +310,8 @@ export default function Home() {
                                         이음이와 대화해보세요!
                                     </p>
                                     <p className="text-3xl font-semibold text-gray-800 leading-relaxed">
-                                        사진을 올려주시거나 <br /> 대화를 시작해주세요.
+                                        사진을 올려주시거나 <br /> 대화를
+                                        시작해주세요.
                                     </p>
                                 </div>
                             )}
@@ -309,11 +335,19 @@ export default function Home() {
                     <p className="text-lg text-gray-600 mb-4">
                         {getStatusText()}
                     </p>
-                    {(isAnalyzingPhoto || status === 'thinking' || status === 'speaking') && (
+                    {(isAnalyzingPhoto ||
+                        status === 'thinking' ||
+                        status === 'speaking') && (
                         <div className="flex space-x-1">
                             <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
-                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            <div
+                                className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
+                                style={{ animationDelay: '0.1s' }}
+                            ></div>
+                            <div
+                                className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
+                                style={{ animationDelay: '0.2s' }}
+                            ></div>
                         </div>
                     )}
                 </div>
@@ -372,8 +406,7 @@ export default function Home() {
                     </button>
 
                     {!photoSession && (
-                        <p className="text-sm text-gray-500 text-center max-w-xs">
-                        </p>
+                        <p className="text-sm text-gray-500 text-center max-w-xs"></p>
                     )}
                 </div>
 
