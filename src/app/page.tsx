@@ -133,7 +133,12 @@ export default function Home() {
         try {
             setIsAnalyzingPhoto(true);
             setStatus('thinking');
-            const imageUrl = URL.createObjectURL(file);
+            
+            const reader = new FileReader();
+            const imageUrl = await new Promise<string>((resolve) => {
+                reader.onload = (e) => resolve(e.target?.result as string);
+                reader.readAsDataURL(file);
+            });
 
             let userId = localStorage.getItem('userId');
             if (!userId) {
@@ -372,124 +377,252 @@ export default function Home() {
         }
     };
 
-    const generateReport = (analysis: ConversationAnalysis) => {
-        const reportHTML = `
-            <!DOCTYPE html>
-            <html lang="ko">
-            <head>
-                <meta charset="UTF-8">
-                <title>치매 인지기능 평가 보고서 - 이음이 AI 케어</title>
-                <style>
-                    body { font-family: 'Malgun Gothic', '맑은 고딕', Arial, sans-serif; margin: 20px; line-height: 1.6; }
-                    h1 { color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
-                    h2 { color: #1e40af; margin-top: 30px; margin-bottom: 15px; font-size: 18px; }
-                    .info-section { background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-                    .score { font-weight: bold; color: #059669; }
-                    .metric { margin: 8px 0; }
-                    .recommendation { background: #eff6ff; padding: 10px; border-left: 4px solid #3b82f6; margin: 10px 0; }
-                    .footer { margin-top: 40px; text-align: center; color: #6b7280; font-size: 12px; }
-                    .header-info { background: #fef3c7; padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
-                </style>
-            </head>
-            <body>
-                <h1>치매 인지기능 평가 보고서</h1>
-                <div class="header-info">
-                    <strong>이음이 AI 케어 시스템</strong> | 표준화된 치매 평가 척도(K-MMSE, CDR, NPI) 기반
-                </div>
-                
-                <div class="info-section">
-                    <h2>기본 정보</h2>
-                    <div class="metric">대화 시작: ${new Date(analysis.sessionStart).toLocaleString('ko-KR')}</div>
-                    <div class="metric">대화 종료: ${new Date(analysis.sessionEnd).toLocaleString('ko-KR')}</div>
-                    <div class="metric">소요 시간: ${Math.round(analysis.totalDuration / 60000)}분</div>
-                    <div class="metric">전체 대화 횟수: ${analysis.totalConversations}회</div>
-                </div>
+    const generateHTML = (analysis: ConversationAnalysis) => {
+        const htmlContent = `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>치매 인지기능 평가 보고서</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .report-container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #4A90E2;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        .section {
+            margin-bottom: 25px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #34495e;
+            border-left: 4px solid #4A90E2;
+            padding-left: 12px;
+            margin-bottom: 15px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .info-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .score-value {
+            font-weight: bold;
+            color: #4A90E2;
+        }
+        .list-item {
+            margin: 8px 0;
+            padding-left: 15px;
+            position: relative;
+        }
+        .list-item:before {
+            content: "•";
+            color: #4A90E2;
+            position: absolute;
+            left: 0;
+        }
+        .summary-box {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #95a5a6;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 20px;
+        }
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .report-container {
+                box-shadow: none;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <div class="header">
+            <div class="title">치매 인지기능 평가 보고서</div>
+            <div class="subtitle">이음이 AI 케어 시스템 | 표준화된 치매 평가 척도 기반</div>
+        </div>
 
-                <div class="info-section">
-                    <h2>대화 내역 요약</h2>
-                    <p>${analysis.conversationSummary}</p>
+        <div class="section">
+            <div class="section-title">■ 기본 정보</div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <strong>대화 시작:</strong> ${new Date(analysis.sessionStart).toLocaleString('ko-KR')}
                 </div>
+                <div class="info-item">
+                    <strong>대화 종료:</strong> ${new Date(analysis.sessionEnd).toLocaleString('ko-KR')}
+                </div>
+                <div class="info-item">
+                    <strong>소요 시간:</strong> ${Math.round(analysis.totalDuration / 60000)}분
+                </div>
+                <div class="info-item">
+                    <strong>전체 대화 횟수:</strong> ${analysis.totalConversations}회
+                </div>
+            </div>
+        </div>
 
-                <div class="info-section">
-                    <h2>I. K-MMSE 기반 인지기능 평가</h2>
-                    <div class="metric">지남력 (Orientation): <span class="score">${analysis.orientationScore || 3}/5</span></div>
-                    <div class="metric">주의집중력 (Attention): <span class="score">${analysis.attentionScore || 3}/5</span></div>
-                    <div class="metric">기억력 (Memory): <span class="score">${analysis.memoryScore || 3}/5</span></div>
-                    <div class="metric">언어기능 (Language): <span class="score">${analysis.languageScore || 3}/5</span></div>
-                    <div class="metric">이해력 (Comprehension): <span class="score">${analysis.comprehensionScore || 3}/5</span></div>
-                </div>
+        <div class="section">
+            <div class="section-title">■ 대화 내역 요약</div>
+            <div class="summary-box">
+                ${analysis.conversationSummary}
+            </div>
+        </div>
 
-                <div class="info-section">
-                    <h2>II. CDR 기반 기능수준 평가</h2>
-                    <div class="metric">전반적 기능수준: <span class="score">${analysis.functionalLevel || '평가 중'}</span></div>
-                </div>
+        <div class="section">
+            <div class="section-title">■ I. K-MMSE 기반 인지기능 평가</div>
+            <div class="score-item">
+                <span>지남력 (Orientation)</span>
+                <span class="score-value">${analysis.orientationScore || 3}/5</span>
+            </div>
+            <div class="score-item">
+                <span>주의집중력 (Attention)</span>
+                <span class="score-value">${analysis.attentionScore || 3}/5</span>
+            </div>
+            <div class="score-item">
+                <span>기억력 (Memory)</span>
+                <span class="score-value">${analysis.memoryScore || 3}/5</span>
+            </div>
+            <div class="score-item">
+                <span>언어기능 (Language)</span>
+                <span class="score-value">${analysis.languageScore || 3}/5</span>
+            </div>
+            <div class="score-item">
+                <span>이해력 (Comprehension)</span>
+                <span class="score-value">${analysis.comprehensionScore || 3}/5</span>
+            </div>
+        </div>
 
-                <div class="info-section">
-                    <h2>III. NPI 기반 행동심리증상</h2>
-                    <div class="metric">감정상태: <span class="score">${analysis.emotionalState || '안정'}</span></div>
-                    <div class="metric">행동증상: ${(analysis.behavioralSymptoms || ['특이사항 없음']).join(', ')}</div>
-                </div>
+        <div class="section">
+            <div class="section-title">■ II. CDR 기반 기능수준 평가</div>
+            <div class="info-item">
+                <strong>전반적 기능수준:</strong> ${analysis.functionalLevel || '평가 중'}
+            </div>
+        </div>
 
-                <div class="info-section">
-                    <h2>IV. 종합 임상 평가</h2>
-                    <div class="metric">전반적 인지상태: ${analysis.overallCognition || '평가 진행 중'}</div>
-                    <div class="metric">위험요인: ${(analysis.riskFactors || ['해당없음']).join(', ')}</div>
-                </div>
+        <div class="section">
+            <div class="section-title">■ III. NPI 기반 행동심리증상</div>
+            ${analysis.behavioralSymptoms && analysis.behavioralSymptoms.length > 0 ? 
+                analysis.behavioralSymptoms.map((symptom: string) => `<div class="list-item">${symptom}</div>`).join('') :
+                '<div class="list-item">특이사항 없음</div>'
+            }
+        </div>
 
-                <div class="info-section">
-                    <h2>V. 대화 참여도 분석</h2>
-                    <div class="metric">긍정적 반응: ${analysis.positiveReactions}회</div>
-                    <div class="metric">부정적 반응: ${analysis.negativeReactions}회</div>
-                    <div class="metric">참여도: <span class="score">${analysis.participationLevel}/5</span></div>
-                    <div class="metric">기분 변화: ${analysis.moodChanges.join(', ')}</div>
+        <div class="section">
+            <div class="section-title">■ IV. 감정 상태 및 참여도</div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <strong>감정 상태:</strong> ${analysis.emotionalState || '안정'}
                 </div>
+                <div class="info-item">
+                    <strong>참여도:</strong> ${analysis.participationLevel || 3}/5
+                </div>
+                <div class="info-item">
+                    <strong>긍정 반응:</strong> ${analysis.positiveReactions || 0}회
+                </div>
+                <div class="info-item">
+                    <strong>부정 반응:</strong> ${analysis.negativeReactions || 0}회
+                </div>
+            </div>
+        </div>
 
-                ${analysis.detailedAnalysis ? `
-                <div class="info-section">
-                    <h2>상세 분석</h2>
-                    <p>${analysis.detailedAnalysis}</p>
-                </div>
-                ` : ''}
+        <div class="section">
+            <div class="section-title">■ V. 위험 요인</div>
+            ${analysis.riskFactors && analysis.riskFactors.length > 0 ? 
+                analysis.riskFactors.map((risk: string) => `<div class="list-item">${risk}</div>`).join('') :
+                '<div class="list-item">특이사항 없음</div>'
+            }
+        </div>
 
-                ${analysis.careRecommendations && analysis.careRecommendations.length > 0 ? `
-                <div class="info-section">
-                    <h2>VI. 전문 케어 지침</h2>
-                    ${analysis.careRecommendations.map(rec => `<div class="recommendation">🏥 ${rec}</div>`).join('')}
-                </div>
-                ` : ''}
+        <div class="section">
+            <div class="section-title">■ VI. 종합 소견</div>
+            <div class="summary-box">
+                ${analysis.overallCognition || analysis.detailedAnalysis || '종합적으로 양호한 상태입니다.'}
+            </div>
+        </div>
 
-                <div class="info-section">
-                    <h2>VII. 보호자 교육 및 권장사항</h2>
-                    ${analysis.recommendations && analysis.recommendations.length > 0 
-                        ? analysis.recommendations.map(rec => `<div class="recommendation">📋 ${rec}</div>`).join('')
-                        : `${analysis.positiveReactions > analysis.negativeReactions 
-                            ? `<div class="recommendation">✓ 환자가 긍정적으로 참여하고 있습니다.</div>
-                               <div class="recommendation">✓ 현재와 같은 방식으로 대화를 지속해주세요.</div>`
-                            : `<div class="recommendation">⚠ 환자의 참여도 향상이 필요합니다.</div>
-                               <div class="recommendation">⚠ 더 친숙한 주제나 사진을 활용해보세요.</div>`
-                        }
-                        <div class="recommendation">📚 정기적인 인지 자극 활동을 권장합니다.</div>
-                        <div class="recommendation">👨‍⚕️ 주기적인 전문의 상담을 받으시기 바랍니다.</div>`
-                    }
-                </div>
+        <div class="section">
+            <div class="section-title">■ VII. 케어 권장사항</div>
+            ${analysis.careRecommendations && analysis.careRecommendations.length > 0 ? 
+                analysis.careRecommendations.map((recommendation: string) => `<div class="list-item">${recommendation}</div>`).join('') :
+                ''
+            }
+            ${analysis.recommendations && analysis.recommendations.length > 0 ? 
+                analysis.recommendations.map((recommendation: string) => `<div class="list-item">${recommendation}</div>`).join('') :
+                ''
+            }
+        </div>
 
-                <div class="footer">
-                    <p>보고서 생성 시간: ${new Date().toLocaleString('ko-KR')}</p>
-                    <p>이음이 AI 치매 케어 서비스</p>
-                </div>
-            </body>
-            </html>
+        <div class="footer">
+            <div>보고서 생성일: ${new Date().toLocaleString('ko-KR')}</div>
+            <div>이음이 AI 치매 케어 서비스</div>
+        </div>
+    </div>
+</body>
+</html>
         `;
 
-        const blob = new Blob([reportHTML], { type: 'text/html;charset=utf-8' });
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `이음이_대화보고서_${new Date().toISOString().slice(0, 10)}.html`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `이음이_대화보고서_${new Date().toISOString().slice(0, 10)}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    };
+
+    const generateReport = (analysis: ConversationAnalysis) => {
+        generateHTML(analysis);
     };
 
     const endConversation = async () => {

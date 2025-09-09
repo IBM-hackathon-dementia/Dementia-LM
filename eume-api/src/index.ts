@@ -301,14 +301,13 @@ export default {
                 history.photoSession.isActive = false;
             }
 
-            const recentMessages = history.messages.slice(-5);
             const relevantGuidance = ragSystem.retrieveRelevantGuidance(sttResponse.text);
 
             let conversationStage: 'initial' | 'conversation' | 'reminiscence' | 'closure' = 'conversation';
 
             if (hasPhotoSession && history.photoSession?.isActive) {
                 conversationStage = 'reminiscence';
-            } else if (recentMessages.length === 0) {
+            } else if (history.messages.length === 0) {
                 conversationStage = 'initial';
             } else if (sttResponse.text.includes('기억') || sttResponse.text.includes('옛날') || sttResponse.text.includes('어린')) {
                 conversationStage = 'reminiscence';
@@ -317,6 +316,31 @@ export default {
             }
 
             const stageGuidance = ragSystem.getStageGuidance(conversationStage);
+            
+            const recentMessages = [];
+            const validMessages = history.messages
+                .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+                .slice(-4);
+            
+            for (let i = 0; i < validMessages.length; i++) {
+                const currentMsg = validMessages[i];
+                const prevMsg = i > 0 ? validMessages[i-1] : null;
+                
+                if (!prevMsg || prevMsg.role !== currentMsg.role) {
+                    recentMessages.push({
+                        role: currentMsg.role,
+                        content: currentMsg.content
+                    });
+                }
+            }
+            
+            if (recentMessages.length > 0 && recentMessages[recentMessages.length - 1].role === 'user') {
+                recentMessages.pop();
+            }
+            
+            if (recentMessages.length > 0 && recentMessages[0].role === 'assistant') {
+                recentMessages.shift();
+            }
 
 			let systemPrompt = `당신은 치매 어르신을 위한 따뜻한 AI 친구 "이음이"입니다.
 
