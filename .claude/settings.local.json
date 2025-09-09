@@ -20,7 +20,15 @@
       "Bash(python:*)",
       "Bash(gh repo create:*)",
       "Bash(git remote add:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+      "WebFetch(domain:postimg.cc)",
+      "WebFetch(domain:ifh.cc)",
+      "Bash(git log:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:developers.cloudflare.com)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []
