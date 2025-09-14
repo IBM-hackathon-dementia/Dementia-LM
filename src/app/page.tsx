@@ -52,6 +52,7 @@ export default function Home() {
     const [conversations, setConversations] = useState<ConversationMessage[]>([]);
     const [photoSession, setPhotoSession] = useState<PhotoSession | null>(null);
     const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [currentSession, setCurrentSession] = useState<ConversationSession | null>(null);
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -130,13 +131,22 @@ export default function Home() {
             return;
         }
 
+        let progressInterval: NodeJS.Timeout | null = null;
+        let analysisInterval: NodeJS.Timeout | null = null;
+
         try {
             setIsAnalyzingPhoto(true);
             setStatus('thinking');
+            setUploadProgress(0);
             
+            // 파일 읽기 시작
+            setUploadProgress(10);
             const reader = new FileReader();
             const imageUrl = await new Promise<string>((resolve) => {
-                reader.onload = (e) => resolve(e.target?.result as string);
+                reader.onload = (e) => {
+                    setUploadProgress(30);
+                    resolve(e.target?.result as string);
+                };
                 reader.readAsDataURL(file);
             });
 
@@ -149,7 +159,21 @@ export default function Home() {
             const formData = new FormData();
             formData.append('image', file);
 
-            const response = await fetch('http://127.0.0.1:8788/analyze-image', {
+            // 업로드 시작
+            setUploadProgress(40);
+
+            // 업로드 진행 시뮬레이션
+            progressInterval = setInterval(() => {
+                setUploadProgress(prev => {
+                    if (prev < 65) {
+                        const increment = Math.random() * 8 + 2;
+                        return Math.min(65, Math.round((prev + increment) * 10) / 10);
+                    }
+                    return prev;
+                });
+            }, 100);
+
+            const response = await fetch('http://127.0.0.1:8787/analyze-image', {
                 method: 'POST',
                 headers: {
                     'X-User-ID': userId
@@ -157,11 +181,30 @@ export default function Home() {
                 body: formData,
             });
 
+            if (progressInterval) clearInterval(progressInterval);
+            // 업로드 완료, 분석 중
+            setUploadProgress(70);
+
+            // 분석 진행 시뮬레이션
+            analysisInterval = setInterval(() => {
+                setUploadProgress(prev => {
+                    if (prev < 95) {
+                        const increment = Math.random() * 4 + 2; // 더 빠른 증가
+                        return Math.min(95, Math.round((prev + increment) * 10) / 10);
+                    }
+                    return prev;
+                });
+            }, 120); // 더 빠른 간격
+
             const result = await response.json() as { imageAnalysis: string; error?: string };
 
             if (!response.ok) {
                 throw new Error(result.error || '이미지 분석 중 오류가 발생했습니다.');
             }
+
+            clearInterval(analysisInterval);
+            // 분석 완료
+            setUploadProgress(100);
 
             setPhotoSession({
                 imageUrl,
@@ -174,11 +217,19 @@ export default function Home() {
             setStatus('idle');
             speak('사진을 자세히 살펴봤어요. 이제 이 사진에 대해 이야기해볼까요?');
 
+            // 2초 후 진행도 리셋
+            setTimeout(() => setUploadProgress(0), 2000);
+
         } catch (err: Error | unknown) {
             const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다';
             setError(`사진 업로드 오류: ${errorMessage}`);
+            setUploadProgress(0);
             setIsAnalyzingPhoto(false);
             setStatus('idle');
+        } finally {
+            // 인터벌 정리
+            if (progressInterval) clearInterval(progressInterval);
+            if (analysisInterval) clearInterval(analysisInterval);
         }
     };
 
@@ -201,7 +252,7 @@ export default function Home() {
                 headers['X-Image-Analysis'] = btoa(unescape(encodeURIComponent(photoSession.imageAnalysis)));
             }
 
-            const response = await fetch('http://127.0.0.1:8788', {
+            const response = await fetch('http://127.0.0.1:8787', {
                 method: 'POST',
                 headers,
                 body: audioBlob,
@@ -311,7 +362,7 @@ export default function Home() {
         const totalConversations = parseInt(localStorage.getItem('totalConversations') || '0') + 1;
         
         try {
-            const response = await fetch('http://127.0.0.1:8788/generate-report', {
+            const response = await fetch('http://127.0.0.1:8787/generate-report', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1018,7 +1069,22 @@ export default function Home() {
                     <p className="text-lg text-gray-600 mb-4">
                         {getStatusText()}
                     </p>
-                    {(isAnalyzingPhoto || status === 'thinking' || status === 'speaking') && (
+                    {isAnalyzingPhoto && uploadProgress > 0 && (
+                        <div className="w-full max-w-xs mb-4">
+                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div
+                                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                                    style={{ width: `${uploadProgress}%` }}
+                                ></div>
+                            </div>
+                            <div className="text-sm text-gray-600 mt-2 text-center">
+                                사진 분석 중... {Math.round(uploadProgress * 10) / 10}%
+                                <br />
+                                <span className="text-xs text-gray-500">(30초 정도 소요됩니다)</span>
+                            </div>
+                        </div>
+                    )}
+                    {((isAnalyzingPhoto && uploadProgress === 0) || status === 'thinking' || status === 'speaking') && (
                         <div className="flex space-x-1">
                             <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
                             <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
