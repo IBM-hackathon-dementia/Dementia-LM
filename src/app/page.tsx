@@ -139,7 +139,6 @@ export default function Home() {
             setStatus('thinking');
             setUploadProgress(0);
             
-            // 파일 읽기 시작
             setUploadProgress(10);
             const reader = new FileReader();
             const imageUrl = await new Promise<string>((resolve) => {
@@ -159,10 +158,7 @@ export default function Home() {
             const formData = new FormData();
             formData.append('image', file);
 
-            // 업로드 시작
             setUploadProgress(40);
-
-            // 업로드 진행 시뮬레이션
             progressInterval = setInterval(() => {
                 setUploadProgress(prev => {
                     if (prev < 65) {
@@ -182,19 +178,17 @@ export default function Home() {
             });
 
             if (progressInterval) clearInterval(progressInterval);
-            // 업로드 완료, 분석 중
             setUploadProgress(70);
 
-            // 분석 진행 시뮬레이션
             analysisInterval = setInterval(() => {
                 setUploadProgress(prev => {
                     if (prev < 95) {
-                        const increment = Math.random() * 4 + 2; // 더 빠른 증가
+                        const increment = Math.random() * 4 + 2;
                         return Math.min(95, Math.round((prev + increment) * 10) / 10);
                     }
                     return prev;
                 });
-            }, 120); // 더 빠른 간격
+            }, 120);
 
             const result = await response.json() as { imageAnalysis: string; error?: string };
 
@@ -217,7 +211,6 @@ export default function Home() {
             setStatus('idle');
             speak('사진을 자세히 살펴봤어요. 이제 이 사진에 대해 이야기해볼까요?');
 
-            // 2초 후 진행도 리셋
             setTimeout(() => setUploadProgress(0), 2000);
 
         } catch (err: Error | unknown) {
@@ -227,7 +220,6 @@ export default function Home() {
             setIsAnalyzingPhoto(false);
             setStatus('idle');
         } finally {
-            // 인터벌 정리
             if (progressInterval) clearInterval(progressInterval);
             if (analysisInterval) clearInterval(analysisInterval);
         }

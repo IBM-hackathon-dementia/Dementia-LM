@@ -34,19 +34,17 @@ async function handleReportGeneration(request: Request, env: Env, corsHeaders: R
 			});
 		}
 
-		const analysisPrompt = `당신은 치매 전문 신경과 의사입니다. 다음 환자와의 대화를 표준화된 치매 평가 척도(K-MMSE, CDR, NPI)를 기준으로 분석하여 임상 보고서를 작성해주세요.
+		const analysisPrompt = `치매 전문의로서 다음 대화를 K-MMSE, CDR, NPI 기준으로 분석하여 JSON 형식으로 응답하세요.
 
-=== 환자 대화 내역 ===
+=== 환자 대화 ===
 ${conversations.map((msg: ConversationMessage, index: number) =>
 	`${index + 1}. ${msg.role === 'user' ? '환자' : '의료진'}: ${msg.content}`
 ).join('\n')}
 
 === 세션 정보 ===
-- 평가 시작: ${new Date(sessionData.sessionStart).toLocaleString('ko-KR')}
-- 평가 종료: ${new Date(sessionData.sessionEnd).toLocaleString('ko-KR')}
-- 총 평가 시간: ${Math.round(sessionData.totalDuration / 60000)}분
-
-다음 JSON 형식으로 정확하게 응답하세요:
+평가 시간: ${Math.round(sessionData.totalDuration / 60000)}분
+시작: ${new Date(sessionData.sessionStart).toLocaleString('ko-KR')}
+종료: ${new Date(sessionData.sessionEnd).toLocaleString('ko-KR')}
 
 {
   "orientationScore": 점수(1-5),
@@ -186,16 +184,12 @@ async function handleImageAnalysis(request: Request, env: Env, corsHeaders: Reco
 
 		const visionResponse = await env.AI.run('@cf/llava-hf/llava-1.5-7b-hf', {
 			image: imageArray,
-			prompt: "이 사진을 한국어로 매우 자세히 분석해주세요. 치매 환자의 회상 치료에 도움이 되는 구체적인 정보들을 포함해주세요:\n\n1. 장소와 배경 (실내/실외, 바다/산/도시/시골 등)\n2. 계절과 날씨 (옷차림, 주변 환경을 통해 추측)\n3. 등장인물 (나이대, 성별, 표정, 복장, 관계 추측)\n4. 활동과 상황 (무엇을 하고 있는지, 특별한 행사인지)\n5. 시대적 배경 (사진 화질, 의상, 배경으로 추측되는 연대)\n6. 감정적 분위기 (즐거운지, 공식적인지, 편안한지)\n7. 주목할 만한 물건이나 세부사항\n\n기억 유도에 도움이 될 구체적인 세부사항들을 빠짐없이 언급해주세요.",
+			prompt: "치매 환자 회상 치료용 사진 분석:\n\n1. 장소와 배경\n2. 계절과 날씨\n3. 등장인물 (나이, 성별, 표정, 관계)\n4. 활동과 상황\n5. 시대적 배경\n6. 감정적 분위기\n7. 주목할 만한 세부사항\n\n기억 유도에 도움이 될 구체적 정보를 포함하여 한국어로 상세 분석하세요.",
 			max_tokens: 768
 		});
 
 		const userId = request.headers.get('X-User-ID') || 'default-user';
-
-		// Supabase 클라이언트 초기화
 		const supabase = new SupabaseStorage(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
-
-		// 사진 세션 생성
 		await supabase.createPhotoSession(userId, visionResponse.description || '사진을 분석했습니다.', Date.now());
 
 		return new Response(JSON.stringify({
@@ -281,10 +275,8 @@ export default {
                 }
             }
 
-            // Supabase 클라이언트 초기화
             const supabase = new SupabaseStorage(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
 
-            // 대화 히스토리 조회 (30분 타임아웃, 1시간 사진 세션 타임아웃 자동 처리)
             const history = await supabase.getConversationHistory(userId);
 
             const relevantGuidance = ragSystem.retrieveRelevantGuidance(sttResponse.text);
