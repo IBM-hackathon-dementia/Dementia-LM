@@ -1,5 +1,6 @@
 import { ragSystem } from './utils/rag-system';
 import { reportRagSystem } from './utils/report-rag-system';
+import { SupabaseStorage } from './utils/supabase';
 
 interface ConversationMessage {
 	role: 'user' | 'assistant';
@@ -17,6 +18,8 @@ interface SessionData {
 type Env = {
 	CONVERSATION_HISTORY: KVNamespace;
 	AI: Ai;
+	SUPABASE_URL: string;
+	SUPABASE_ANON_KEY: string;
 };
 
 async function handleReportGeneration(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
@@ -183,24 +186,17 @@ async function handleImageAnalysis(request: Request, env: Env, corsHeaders: Reco
 
 		const visionResponse = await env.AI.run('@cf/llava-hf/llava-1.5-7b-hf', {
 			image: imageArray,
-			prompt: "이 사진을 한국어로 자세히 설명해주세요. 사람들의 표정, 장소, 상황, 시대적 배경 등을 포함해서 회상 치료에 도움이 될 수 있는 모든 세부사항을 설명해주세요.",
-			max_tokens: 512
+			prompt: "이 사진을 한국어로 매우 자세히 분석해주세요. 치매 환자의 회상 치료에 도움이 되는 구체적인 정보들을 포함해주세요:\n\n1. 장소와 배경 (실내/실외, 바다/산/도시/시골 등)\n2. 계절과 날씨 (옷차림, 주변 환경을 통해 추측)\n3. 등장인물 (나이대, 성별, 표정, 복장, 관계 추측)\n4. 활동과 상황 (무엇을 하고 있는지, 특별한 행사인지)\n5. 시대적 배경 (사진 화질, 의상, 배경으로 추측되는 연대)\n6. 감정적 분위기 (즐거운지, 공식적인지, 편안한지)\n7. 주목할 만한 물건이나 세부사항\n\n기억 유도에 도움이 될 구체적인 세부사항들을 빠짐없이 언급해주세요.",
+			max_tokens: 768
 		});
 
 		const userId = request.headers.get('X-User-ID') || 'default-user';
 
-		const history: ConversationHistory = await env.CONVERSATION_HISTORY.get(userId, 'json') || {
-			messages: [],
-			lastInteractionTime: Date.now()
-		};
+		// Supabase 클라이언트 초기화
+		const supabase = new SupabaseStorage(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
 
-		history.photoSession = {
-			imageAnalysis: visionResponse.description || '사진을 분석했습니다.',
-			isActive: true,
-			startTime: Date.now()
-		};
-
-		await env.CONVERSATION_HISTORY.put(userId, JSON.stringify(history));
+		// 사진 세션 생성
+		await supabase.createPhotoSession(userId, visionResponse.description || '사진을 분석했습니다.', Date.now());
 
 		return new Response(JSON.stringify({
 			imageAnalysis: visionResponse.description || '사진을 분석했습니다.'
@@ -285,21 +281,11 @@ export default {
                 }
             }
 
-            let history: ConversationHistory = await env.CONVERSATION_HISTORY.get(userId, 'json') || {
-                messages: [],
-                lastInteractionTime: Date.now()
-            };
+            // Supabase 클라이언트 초기화
+            const supabase = new SupabaseStorage(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
 
-            if (Date.now() - history.lastInteractionTime > 1800000) {
-                history = {
-                    messages: [],
-                    lastInteractionTime: Date.now()
-                };
-            }
-
-            if (history.photoSession && Date.now() - history.photoSession.startTime > 3600000) {
-                history.photoSession.isActive = false;
-            }
+            // 대화 히스토리 조회 (30분 타임아웃, 1시간 사진 세션 타임아웃 자동 처리)
+            const history = await supabase.getConversationHistory(userId);
 
             const relevantGuidance = ragSystem.retrieveRelevantGuidance(sttResponse.text);
 
@@ -316,16 +302,16 @@ export default {
             }
 
             const stageGuidance = ragSystem.getStageGuidance(conversationStage);
-            
+
             const recentMessages = [];
             const validMessages = history.messages
                 .filter(msg => msg.role === 'user' || msg.role === 'assistant')
                 .slice(-4);
-            
+
             for (let i = 0; i < validMessages.length; i++) {
                 const currentMsg = validMessages[i];
                 const prevMsg = i > 0 ? validMessages[i-1] : null;
-                
+
                 if (!prevMsg || prevMsg.role !== currentMsg.role) {
                     recentMessages.push({
                         role: currentMsg.role,
@@ -333,11 +319,11 @@ export default {
                     });
                 }
             }
-            
+
             if (recentMessages.length > 0 && recentMessages[recentMessages.length - 1].role === 'user') {
                 recentMessages.pop();
             }
-            
+
             if (recentMessages.length > 0 && recentMessages[0].role === 'assistant') {
                 recentMessages.shift();
             }
@@ -364,6 +350,12 @@ ${relevantGuidance}
 ${stageGuidance}`;
 
 			if (hasPhotoSession && imageAnalysis) {
+				// 기억이 안 난다는 표현 감지
+				const memoryDifficultyKeywords = ['모르', '잊', '헷갈', '안 나', '못하겠', '어려워', '기억이 안', '기억이 잘', '기억이 가물가물'];
+				const hasMemoryDifficulty = memoryDifficultyKeywords.some(keyword =>
+					sttResponse.text.includes(keyword)
+				);
+
 				systemPrompt += `
 
 === 사진 기반 회상 치료 ===
@@ -372,13 +364,21 @@ ${stageGuidance}`;
 사진 분석 결과:
 ${imageAnalysis}
 
+${hasMemoryDifficulty ? `
+**환자가 기억에 어려움을 표현했습니다. 사진 정보를 활용한 유도 질문이 필요합니다.**
+
+기억 유도 전략:
+- 사진의 한 가지 특징만 간단히 언급하고 짧은 질문하기
+- "바다가 보이네요. 가보신 적 있나요?" 같이 간결하게
+- 복잡한 설명보다는 단순한 키워드 위주로 질문
+- 한 번에 하나의 질문만 하기` : `
 사진 기반 대화 가이드라인:
 - 사진 속 세부사항을 언급하며 자연스럽게 질문하기
 - "이 사진을 보니..." "사진 속 ~가 보이는데..." 같은 표현 사용
 - 사진과 관련된 개인적 경험이나 추억 유도하기
 - 감정적 반응을 격려하고 지지하기
 - 사진 속 인물, 장소, 상황에 대한 열린 질문하기
-- 긍정적인 기억과 감정에 집중하기`;
+- 긍정적인 기억과 감정에 집중하기`}`;
 			}
 
 			systemPrompt += `
@@ -387,13 +387,13 @@ ${imageAnalysis}
 - **절대 금지: 영어, Translation, 번역, 괄호 설명, 이모지 모두 사용 금지**
 - **오직 순수 한국어만 사용 (영어 단어 하나도 금지)**
 - **이모지 절대 사용 금지 (😊 ❤️ 🎉 등 모든 이모지 금지)**
-- 항상 1-2문장으로 짧게 대답
+- **반드시 15단어 이내로 짧게 대답**
+- **질문은 하나만, 설명은 최소화**
 - 존댓말 사용하되 너무 딱딱하지 않게
-- 질문은 하나씩만.
-- "그러셨군요", "정말 좋으셨겠어요" 같은 반응 자주 사용
+- "그러셨군요", "좋으셨겠어요" 같은 반응 간단히 사용
 - 기억이 안 나거나 틀려도 절대 지적하지 말고 자연스럽게 넘어가기
 - 어려운 단어 절대 사용 금지
-- 자연스러운 한국어 감탄사 사용 ("어머", "그래요", "참 좋네요" 등)
+- 자연스러운 한국어 감탄사 사용 ("어머", "그래요", "좋네요" 등)
 
 잘못된 응답 예시 (절대 금지):
 - "어머나! (Translation: Oh my!)" ❌
@@ -404,11 +404,11 @@ ${imageAnalysis}
 - 모든 이모지 ❌
 
 올바른 응답 예시:
-"어머나, 정말 좋으셨겠어요! 그 때 기분이 어떠셨나요?"
-"참 멋진 추억이시네요. 그런 일이 또 있었나요?"
-"그러셨군요! 정말 잘하셨어요."
+"바다가 보이네요. 가보신 적 있나요?"
+"좋으셨겠어요. 누구와 가셨나요?"
+"그러셨군요. 재미있으셨나요?"
 
-**최종 강조: 순수 한국어만 사용하고 영어나 번역은 절대 포함하지 마세요. 사진 관련 대화를 이어나가세요.**`;
+**최종 강조: 15단어 이내로 짧게 대답하세요. 순수 한국어만 사용하고 영어나 번역은 절대 포함하지 마세요.**`;
 
 			const messages = [
 				{
@@ -425,21 +425,10 @@ ${imageAnalysis}
 			const llmResponse = await env.AI.run('@cf/google/gemma-3-12b-it', { messages });
 
 
-            history.messages.push(
-                {
-                    role: 'user',
-                    content: sttResponse.text,
-                    timestamp: Date.now()
-                },
-                {
-                    role: 'assistant',
-                    content: llmResponse.response || '',
-                    timestamp: Date.now()
-                }
-            );
-            history.lastInteractionTime = Date.now();
-
-            await env.CONVERSATION_HISTORY.put(userId, JSON.stringify(history));
+            // 새로운 메시지를 Supabase에 저장
+            const timestamp = Date.now();
+            await supabase.addConversationMessage(userId, 'user', sttResponse.text, timestamp);
+            await supabase.addConversationMessage(userId, 'assistant', llmResponse.response || '', timestamp + 1);
 
 			const finalResponse = {
 				userText: sttResponse.text,
