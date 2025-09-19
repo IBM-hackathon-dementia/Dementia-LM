@@ -2,6 +2,7 @@ import { ragSystem } from './utils/rag-system';
 import { reportRagSystem } from './utils/report-rag-system';
 import { SupabaseStorage } from './utils/supabase';
 import { PersonalizedQuestionSystem } from './utils/personalized-question-system';
+import { D1Storage } from './utils/d1-storage';
 
 interface ConversationMessage {
 	role: 'user' | 'assistant';
@@ -21,17 +22,18 @@ type Env = {
 	AI: Ai;
 	SUPABASE_URL: string;
 	SUPABASE_ANON_KEY: string;
+	DB: D1Database;
 };
 
 async function handleTraumaInfo(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
 	const url = new URL(request.url);
 	const userId = request.headers.get('X-User-ID') || 'default-user';
-	const supabase = new SupabaseStorage(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+	const d1Storage = new D1Storage(env.DB);
 
 	try {
 		if (request.method === 'GET') {
 			// 트라우마 정보 조회
-			const traumaInfo = await supabase.getTraumaInfo(userId);
+			const traumaInfo = await d1Storage.getTraumaInfo(userId);
 			return new Response(JSON.stringify(traumaInfo || {}), {
 				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 			});
@@ -42,14 +44,14 @@ async function handleTraumaInfo(request: Request, env: Env, corsHeaders: Record<
 				detailedDescription: string;
 			};
 
-			await supabase.saveTraumaInfo(userId, traumaData);
+			await d1Storage.saveTraumaInfo(userId, traumaData);
 
 			return new Response(JSON.stringify({ success: true }), {
 				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 			});
 		} else if (request.method === 'DELETE') {
 			// 트라우마 정보 삭제
-			await supabase.deleteTraumaInfo(userId);
+			await d1Storage.deleteTraumaInfo(userId);
 
 			return new Response(JSON.stringify({ success: true }), {
 				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -237,33 +239,10 @@ async function handleImageAnalysis(request: Request, env: Env, corsHeaders: Reco
 		});
 
 		const userId = request.headers.get('X-User-ID') || 'default-user';
+		const d1Storage = new D1Storage(env.DB);
 
-		// 사진 세션 정보를 KV에 저장
-		const photoSessionData = {
-			imageAnalysis: visionResponse.description || '사진을 분석했습니다.',
-			isActive: true,
-			startTime: Date.now()
-		};
-
-		// 기존 대화 히스토리 가져오기
-		let history;
-		const kvHistory = await env.CONVERSATION_HISTORY.get(userId);
-		if (kvHistory) {
-			history = JSON.parse(kvHistory);
-		} else {
-			history = {
-				messages: [],
-				lastInteractionTime: Date.now(),
-				photoSession: null
-			};
-		}
-
-		// 사진 세션 정보 업데이트
-		history.photoSession = photoSessionData;
-		history.lastInteractionTime = Date.now();
-
-		// KV에 저장
-		await env.CONVERSATION_HISTORY.put(userId, JSON.stringify(history));
+		// D1 데이터베이스에 사진 세션 저장
+		await d1Storage.createPhotoSession(userId, visionResponse.description || '사진을 분석했습니다.', Date.now());
 
 		return new Response(JSON.stringify({
 			imageAnalysis: visionResponse.description || '사진을 분석했습니다.'
@@ -453,32 +432,12 @@ export default {
                 }
             }
 
-            // Supabase가 사용 가능한 경우에만 사용, 아니면 KV만 사용
-            let history;
-            let personalizedQSystem = null;
+            // D1 데이터베이스 사용
+            const d1Storage = new D1Storage(env.DB);
+            const history = await d1Storage.getConversationHistory(userId);
 
-            try {
-                if (env.SUPABASE_URL && env.SUPABASE_URL !== 'https://dummy.supabase.co') {
-                    const supabase = new SupabaseStorage(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
-                    personalizedQSystem = new PersonalizedQuestionSystem(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
-                    history = await supabase.getConversationHistory(userId);
-                } else {
-                    throw new Error('Supabase not available');
-                }
-            } catch (error) {
-                console.log('Supabase 연결 실패, KV 사용:', error);
-                // KV에서 대화 히스토리 가져오기
-                const kvHistory = await env.CONVERSATION_HISTORY.get(userId);
-                if (kvHistory) {
-                    history = JSON.parse(kvHistory);
-                } else {
-                    history = {
-                        messages: [],
-                        lastInteractionTime: Date.now(),
-                        photoSession: null
-                    };
-                }
-            }
+            // 개인화된 질문 시스템 (D1 기반으로 추후 구현 가능)
+            let personalizedQSystem = null;
 
             // 트라우마 정보 조회 (헤더에서 읽기)
             let traumaInfo = null;
@@ -717,20 +676,10 @@ ${hasMemoryDifficulty ? `
                 }
             }
 
-            // 대화 히스토리 저장 (KV 스토리지 사용)
+            // 대화 히스토리 저장 (D1 데이터베이스 사용)
             const timestamp = Date.now();
-            const newUserMessage = { role: 'user' as const, content: sttResponse.text, timestamp };
-            const newAssistantMessage = { role: 'assistant' as const, content: llmResponse.response || '', timestamp: timestamp + 1 };
-
-            history.messages.push(newUserMessage, newAssistantMessage);
-            history.lastInteractionTime = timestamp;
-
-            // 30분 이전 메시지 정리
-            const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
-            history.messages = history.messages.filter(msg => msg.timestamp > thirtyMinutesAgo);
-
-            // KV에 저장
-            await env.CONVERSATION_HISTORY.put(userId, JSON.stringify(history));
+            await d1Storage.addConversationMessage(userId, 'user', sttResponse.text, timestamp);
+            await d1Storage.addConversationMessage(userId, 'assistant', llmResponse.response || '', timestamp + 1);
 
 			const finalResponse = {
 				userText: sttResponse.text,
