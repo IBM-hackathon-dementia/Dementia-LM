@@ -46,6 +46,11 @@ interface ConversationSession {
     endTime?: number;
 }
 
+interface TraumaInfo {
+    traumaKeywords: string[];
+    detailedDescription: string;
+}
+
 export default function Home() {
     const [status, setStatus] = useState('idle');
     const [error, setError] = useState('');
@@ -54,6 +59,11 @@ export default function Home() {
     const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [currentSession, setCurrentSession] = useState<ConversationSession | null>(null);
+    const [showTraumaModal, setShowTraumaModal] = useState(false);
+    const [traumaInfo, setTraumaInfo] = useState<TraumaInfo>({
+        traumaKeywords: [],
+        detailedDescription: ''
+    });
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
@@ -66,6 +76,59 @@ export default function Home() {
     }, [conversations]);
 
     const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+
+    // 트라우마 정보 로드 (임시로 로컬 스토리지 사용)
+    useEffect(() => {
+        const loadTraumaInfo = () => {
+            try {
+                const savedTraumaInfo = localStorage.getItem('traumaInfo');
+                if (savedTraumaInfo) {
+                    const parsed = JSON.parse(savedTraumaInfo);
+                    setTraumaInfo({
+                        traumaKeywords: parsed.traumaKeywords || [],
+                        detailedDescription: parsed.detailedDescription || ''
+                    });
+                }
+            } catch (error) {
+                console.error('트라우마 정보 로드 실패:', error);
+            }
+        };
+
+        loadTraumaInfo();
+    }, []);
+
+    const saveTraumaInfo = async () => {
+        try {
+            // 임시로 로컬 스토리지에 저장
+            localStorage.setItem('traumaInfo', JSON.stringify(traumaInfo));
+
+            // 백엔드에도 저장 시도 (실패해도 로컬은 저장됨)
+            try {
+                let userId = localStorage.getItem('userId');
+                if (!userId) {
+                    userId = 'user_' + Date.now();
+                    localStorage.setItem('userId', userId);
+                }
+
+                await fetch('https://eume-api.hwjinfo.workers.dev/trauma-info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': userId
+                    },
+                    body: JSON.stringify(traumaInfo)
+                });
+            } catch (backendError) {
+                console.log('백엔드 저장 실패, 로컬 저장만 완료:', backendError);
+            }
+
+            setShowTraumaModal(false);
+            alert('트라우마 정보가 저장되었습니다.');
+        } catch (error) {
+            console.error('트라우마 정보 저장 실패:', error);
+            alert('저장에 실패했습니다.');
+        }
+    };
 
     const toggleRecording = async () => {
         if (synth?.speaking) {
@@ -169,7 +232,7 @@ export default function Home() {
                 });
             }, 100);
 
-            const response = await fetch('http://127.0.0.1:8787/analyze-image', {
+            const response = await fetch('https://eume-api.hwjinfo.workers.dev/analyze-image', {
                 method: 'POST',
                 headers: {
                     'X-User-ID': userId
@@ -244,7 +307,13 @@ export default function Home() {
                 headers['X-Image-Analysis'] = btoa(unescape(encodeURIComponent(photoSession.imageAnalysis)));
             }
 
-            const response = await fetch('http://127.0.0.1:8787', {
+            // 트라우마 정보를 헤더에 추가
+            const savedTraumaInfo = localStorage.getItem('traumaInfo');
+            if (savedTraumaInfo) {
+                headers['X-Trauma-Info'] = btoa(unescape(encodeURIComponent(savedTraumaInfo)));
+            }
+
+            const response = await fetch('https://eume-api.hwjinfo.workers.dev', {
                 method: 'POST',
                 headers,
                 body: audioBlob,
@@ -354,7 +423,7 @@ export default function Home() {
         const totalConversations = parseInt(localStorage.getItem('totalConversations') || '0') + 1;
         
         try {
-            const response = await fetch('http://127.0.0.1:8787/generate-report', {
+            const response = await fetch('https://eume-api.hwjinfo.workers.dev/generate-report', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -669,11 +738,15 @@ export default function Home() {
 
         <div class="section">
             <div class="section-title">■ VIII. 케어 권장사항</div>
-            ${analysis.careRecommendations && analysis.careRecommendations.length > 0 ? 
+            ${analysis.participationLevel >= 3 ?
+                '<div class="list-item" style="background: #e8f5e8; padding: 12px; border-left: 4px solid #4CAF50; margin-bottom: 10px;"><strong>🎉 참여도 우수:</strong> 환자분께서 적극적으로 참여하셨습니다. 사탕, 칭찬, 작은 선물 등의 긍정적 보상을 제공하여 지속적인 참여 동기를 부여해주세요.</div>' :
+                ''
+            }
+            ${analysis.careRecommendations && analysis.careRecommendations.length > 0 ?
                 analysis.careRecommendations.map((recommendation: string) => `<div class="list-item">${recommendation}</div>`).join('') :
                 ''
             }
-            ${analysis.recommendations && analysis.recommendations.length > 0 ? 
+            ${analysis.recommendations && analysis.recommendations.length > 0 ?
                 analysis.recommendations.map((recommendation: string) => `<div class="list-item">${recommendation}</div>`).join('') :
                 ''
             }
@@ -984,8 +1057,74 @@ export default function Home() {
 
     return (
         <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-teal-50 to-orange-50 p-6">
+            {/* 트라우마 설정 모달 */}
+            {showTraumaModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">환자 보호 설정</h2>
+                            <button
+                                onClick={() => setShowTraumaModal(false)}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    금지 키워드/주제 (쉼표로 구분)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={traumaInfo.traumaKeywords.join(', ')}
+                                    onChange={(e) => setTraumaInfo({
+                                        ...traumaInfo,
+                                        traumaKeywords: e.target.value.split(',').map(k => k.trim()).filter(k => k)
+                                    })}
+                                    placeholder="예: 사고, 병원, 수술, 교통사고, 가족 사망, 질병"
+                                    className="w-full p-3 border border-gray-300 rounded-lg"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    상세 설명
+                                </label>
+                                <textarea
+                                    value={traumaInfo.detailedDescription}
+                                    onChange={(e) => setTraumaInfo({
+                                        ...traumaInfo,
+                                        detailedDescription: e.target.value
+                                    })}
+                                    placeholder="트라우마에 대한 상세 설명을 입력하세요"
+                                    rows={4}
+                                    className="w-full p-3 border border-gray-300 rounded-lg"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={() => setShowTraumaModal(false)}
+                                className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={saveTraumaInfo}
+                                className="flex-1 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                            >
+                                저장
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="text-center w-full max-w-lg">
-                <div className="mb-8">
+                <div className="mb-8 relative">
                     <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center">
                         <img
                             src="/character.png"
@@ -995,6 +1134,15 @@ export default function Home() {
                             className="rounded-2xl shadow-lg"
                         />
                     </div>
+
+                    {/* 트라우마 설정 버튼 */}
+                    <button
+                        onClick={() => setShowTraumaModal(true)}
+                        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-red-600 shadow-lg"
+                        title="환자 보호 설정"
+                    >
+                        🛡️
+                    </button>
                 </div>
 
                 {photoSession && (
