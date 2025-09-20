@@ -18,6 +18,17 @@
 			"binding": "CONVERSATION_HISTORY",
 			"id": "2e4acbcfc1504315afe35ed2bb12a6df"
 		}
+	],
+	"vars": {
+		"SUPABASE_URL": "https://dummy.supabase.co",
+		"SUPABASE_ANON_KEY": "dummy_key"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "eume-database",
+			"database_id": "15e765e6-f892-47f1-9e5d-e8b4bca4caae"
+		}
 	]
 	/**
 	 * Smart Placement

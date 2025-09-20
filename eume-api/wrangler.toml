@@ -2,7 +2,10 @@ name = "eume-api"
 main = "src/index.ts"
 compatibility_date = "2023-01-01"
 
-# KV 저장소 설정
+# 환경 변수는 .dev.vars 파일에서 로드됩니다 (로컬 개발시)
+# 프로덕션 환경 변수는 Cloudflare 대시보드에서 설정
+
+# KV 저장소 설정 (백업용 - 점진적 마이그레이션시)
 kv_namespaces = [
   { binding = "CONVERSATION_HISTORY", id = "2e4acbcfc1504315afe35ed2bb12a6df", preview_id = "16845856a2cb452c8d08da61294ef5c6" }
 ]
