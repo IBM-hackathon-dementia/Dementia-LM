@@ -169,6 +169,36 @@ export interface UserReportsResponse {
   totalCount: number;
 }
 
+export interface UserInfo {
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt?: string;
+}
+
+export interface UserUpdateRequest {
+  name?: string;
+  password?: string;
+  role?: string;
+}
+
+export interface UserUpdateResponse {
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+  updatedAt: string;
+}
+
+export interface UserDeleteResponse {
+  success: boolean;
+  message: string;
+  deletedAt: string;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -340,6 +370,25 @@ class ApiClient {
   async getUserReports(userId: string): Promise<UserReportsResponse> {
     return this.request<UserReportsResponse>(`/api/reports/user/${userId}`, {
       method: 'GET',
+    });
+  }
+
+  async getUserInfo(userId: string): Promise<UserInfo> {
+    return this.request<UserInfo>(`/api/users/${userId}`, {
+      method: 'GET',
+    });
+  }
+
+  async updateUser(userId: string, data: UserUpdateRequest): Promise<UserUpdateResponse> {
+    return this.request<UserUpdateResponse>(`/api/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteUser(userId: string): Promise<UserDeleteResponse> {
+    return this.request<UserDeleteResponse>(`/api/users/${userId}`, {
+      method: 'DELETE',
     });
   }
 }
