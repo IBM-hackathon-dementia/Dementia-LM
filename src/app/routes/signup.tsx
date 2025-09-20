@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSetRecoilState } from 'recoil';
 import { authState } from '../recoil/atoms';
-import { apiClient, LoginRequest } from '../../lib/api';
-import { AuthTokenManager, getUserInfoFromToken } from '../../lib/auth';
 import { Caregiver } from '../recoil/types';
+import { apiClient, SignupRequest } from '../../lib/api';
 
-const LoginPage: React.FC = () => {
+const SignupPage: React.FC = () => {
   const navigate = useNavigate();
   const setAuth = useSetRecoilState(authState);
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: '',
+    phone: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,55 +21,47 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    if (!formData.email || !formData.password) {
-      setError('이메일과 비밀번호를 입력해주세요.');
+    if (!formData.name || !formData.email || !formData.password) {
+      setError('모든 필수 항목을 입력해주세요.');
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      setError('비밀번호는 8자 이상이어야 합니다.');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const loginData: LoginRequest = {
+      const signupData: SignupRequest = {
         username: formData.email,
         password: formData.password,
+        name: formData.name,
       };
 
-      const response = await apiClient.login(loginData);
+      const response = await apiClient.signup(signupData);
 
-      // Store tokens using AuthTokenManager
-      AuthTokenManager.setTokens(response);
+      // Create caregiver object from API response
+      const caregiver: Caregiver = {
+        id: response.id,
+        name: response.name,
+        email: response.username,
+        phone: formData.phone || undefined,
+        createdAt: new Date(response.createdAt),
+      };
 
-      // Get user info from JWT token
-      const userInfo = getUserInfoFromToken(response.accessToken);
-
-      if (userInfo) {
-        // Create caregiver object from token info
-        const caregiver: Caregiver = {
-          id: userInfo.uid,
-          name: '', // We'll need to get this from a separate API call or signup data
-          email: userInfo.sub,
-          createdAt: new Date(userInfo.iat * 1000),
-        };
-
-        // Set authenticated state
-        setAuth({
-          isAuthenticated: true,
-          caregiver,
-          selectedPatient: null,
-        });
-      } else {
-        // Set minimal authenticated state
-        setAuth({
-          isAuthenticated: true,
-          caregiver: null,
-          selectedPatient: null,
-        });
-      }
+      // Set authenticated state
+      setAuth({
+        isAuthenticated: true,
+        caregiver,
+        selectedPatient: null,
+      });
 
       // Navigate to dashboard
       navigate('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인 중 오류가 발생했습니다.');
+      setError(err instanceof Error ? err.message : '회원가입 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +91,7 @@ const LoginPage: React.FC = () => {
             <p className="text-lg text-muted" style={{
               marginBottom: 'var(--space-8)'
             }}>
-              로그인하여 서비스를 이용하세요
+              보호자 정보를 입력해주세요
             </p>
 
             {error && (
@@ -115,6 +108,32 @@ const LoginPage: React.FC = () => {
             )}
 
             <form onSubmit={handleSubmit} className="stack-md">
+              <div>
+                <label htmlFor="name" className="text-lg" style={{
+                  display: 'block',
+                  marginBottom: 'var(--space-2)',
+                  textAlign: 'left'
+                }}>
+                  이름 *
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                  placeholder="보호자 성함을 입력해주세요"
+                  style={{
+                    width: '100%',
+                    padding: 'var(--space-4)',
+                    fontSize: 'var(--text-lg)',
+                    border: '2px solid var(--color-border)',
+                    borderRadius: 'var(--radius-lg)',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
               <div>
                 <label htmlFor="email" className="text-lg" style={{
                   display: 'block',
@@ -155,7 +174,32 @@ const LoginPage: React.FC = () => {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
-                  placeholder="비밀번호를 입력해주세요"
+                  placeholder="비밀번호를 입력해주세요 (8자 이상)"
+                  style={{
+                    width: '100%',
+                    padding: 'var(--space-4)',
+                    fontSize: 'var(--text-lg)',
+                    border: '2px solid var(--color-border)',
+                    borderRadius: 'var(--radius-lg)',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="phone" className="text-lg" style={{
+                  display: 'block',
+                  marginBottom: 'var(--space-2)',
+                  textAlign: 'left'
+                }}>
+                  전화번호 (선택)
+                </label>
+                <input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="전화번호를 입력해주세요"
                   style={{
                     width: '100%',
                     padding: 'var(--space-4)',
@@ -173,22 +217,22 @@ const LoginPage: React.FC = () => {
                 style={{ marginTop: 'var(--space-6)' }}
                 disabled={isLoading}
               >
-                {isLoading ? '로그인 중...' : '로그인'}
+                {isLoading ? '회원가입 중...' : '회원가입'}
               </button>
             </form>
 
             <div style={{ marginTop: 'var(--space-6)', textAlign: 'center' }}>
               <p className="text-muted">
-                계정이 없으신가요?{' '}
+                이미 계정이 있으신가요?{' '}
                 <Link
-                  to="/signup"
+                  to="/login"
                   style={{
                     color: 'var(--color-primary)',
                     textDecoration: 'none',
                     fontWeight: '500'
                   }}
                 >
-                  회원가입
+                  로그인
                 </Link>
               </p>
             </div>
@@ -199,4 +243,4 @@ const LoginPage: React.FC = () => {
   );
 };
 
-export default LoginPage;
+export default SignupPage;
