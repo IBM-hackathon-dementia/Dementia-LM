@@ -119,6 +119,56 @@ export interface UserImagesResponse {
   totalCount: number;
 }
 
+export interface ReportGenerateRequest {
+  userId: string;
+  imageId: string;
+}
+
+export interface ReportGenerateResponse {
+  reportId: string;
+  userId: string;
+  imageId: string;
+  summary: string;
+  memo: string;
+  generatedAt: string;
+  status: string;
+}
+
+export interface ReportPdfGenerateRequest {
+  reportId?: string;
+  userId?: string;
+  includeImages?: boolean;
+  dateRange?: {
+    startDate: string;
+    endDate: string;
+  };
+}
+
+export interface ReportPdfGenerateResponse {
+  pdfUrl: string;
+  reportId: string;
+  generatedAt: string;
+  fileSize: number;
+  downloadUrl: string;
+}
+
+export interface UserReport {
+  id: string;
+  userId: string;
+  imageId: string;
+  summary: string;
+  memo: string;
+  generatedAt: string;
+  status: string;
+  imageThumbnail?: string;
+  imageDescription?: string;
+}
+
+export interface UserReportsResponse {
+  reports: UserReport[];
+  totalCount: number;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -266,6 +316,29 @@ class ApiClient {
 
   async getUserImages(userId: string): Promise<UserImagesResponse> {
     return this.request<UserImagesResponse>(`/api/images/user/${userId}`, {
+      method: 'GET',
+    });
+  }
+
+  async generateReport(data: ReportGenerateRequest): Promise<ReportGenerateResponse> {
+    return this.request<ReportGenerateResponse>('/api/reports/generate', {
+      method: 'POST',
+      headers: {
+        'userId': data.userId,
+        'imageId': data.imageId,
+      },
+    });
+  }
+
+  async generateReportPdf(data: ReportPdfGenerateRequest): Promise<ReportPdfGenerateResponse> {
+    return this.request<ReportPdfGenerateResponse>('/api/reports/generate/pdf', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getUserReports(userId: string): Promise<UserReportsResponse> {
+    return this.request<UserReportsResponse>(`/api/reports/user/${userId}`, {
       method: 'GET',
     });
   }
