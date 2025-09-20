@@ -45,6 +45,80 @@ export interface ApiError {
   status?: number;
 }
 
+export interface ChatStartRequest {
+  userId: string;
+  message: string;
+  context: string;
+}
+
+export interface ChatStartResponse {
+  sessionId: string;
+  response: string;
+  timestamp: string;
+}
+
+export interface ChatReportsParams {
+  userId: string;
+  page?: number;
+  size?: number;
+  sort?: string;
+}
+
+export interface ChatReport {
+  id: string;
+  userId: string;
+  sessionId: string;
+  reportDate: string;
+  duration: number;
+  messageCount: number;
+  sentiment: string;
+  summary: string;
+}
+
+export interface ChatReportsResponse {
+  content: ChatReport[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  first: boolean;
+  last: boolean;
+}
+
+export interface ImageUploadRequest {
+  userId: string;
+  imageUrl: string;
+  description: string;
+  scheduledDate: string;
+}
+
+export interface ImageUploadResponse {
+  id: string;
+  userId: string;
+  imageUrl: string;
+  description: string;
+  scheduledDate: string;
+  uploadedAt: string;
+  status: string;
+}
+
+export interface UserImage {
+  id: string;
+  userId: string;
+  imageUrl: string;
+  description: string;
+  scheduledDate: string;
+  uploadedAt: string;
+  status: string;
+  usageCount: number;
+  lastUsedAt?: string;
+}
+
+export interface UserImagesResponse {
+  images: UserImage[];
+  totalCount: number;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -80,6 +154,14 @@ class ApiClient {
       ...options,
     };
 
+    // Log request details for debugging
+    console.log('🔍 API Request:', {
+      method: config.method || 'GET',
+      url,
+      headers,
+      body: config.body
+    });
+
     try {
       const response = await fetch(url, config);
 
@@ -110,6 +192,13 @@ class ApiClient {
 
       return await response.json();
     } catch (error) {
+      console.error('❌ API Request Failed:', {
+        url,
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        requestBody: config.body
+      });
+
       if (error instanceof Error) {
         throw error;
       }
@@ -137,6 +226,47 @@ class ApiClient {
       headers: {
         'refreshToken': refreshToken,
       },
+    });
+  }
+
+  async startChat(data: ChatStartRequest): Promise<ChatStartResponse> {
+    return this.request<ChatStartResponse>('/api/chat/start', {
+      method: 'POST',
+      headers: {
+        'userId': data.userId,
+        'message': data.message,
+        'context': data.context,
+      },
+    });
+  }
+
+  async getChatReports(params: ChatReportsParams): Promise<ChatReportsResponse> {
+    const searchParams = new URLSearchParams();
+    searchParams.append('userId', params.userId);
+    if (params.page !== undefined) searchParams.append('page', params.page.toString());
+    if (params.size !== undefined) searchParams.append('size', params.size.toString());
+    if (params.sort) searchParams.append('sort', params.sort);
+
+    return this.request<ChatReportsResponse>(`/api/chat/reports?${searchParams.toString()}`, {
+      method: 'GET',
+    });
+  }
+
+  async uploadImage(data: ImageUploadRequest): Promise<ImageUploadResponse> {
+    return this.request<ImageUploadResponse>('/api/images/upload', {
+      method: 'POST',
+      headers: {
+        'userId': data.userId,
+        'imageUrl': data.imageUrl,
+        'description': data.description,
+        'scheduledDate': data.scheduledDate,
+      },
+    });
+  }
+
+  async getUserImages(userId: string): Promise<UserImagesResponse> {
+    return this.request<UserImagesResponse>(`/api/images/user/${userId}`, {
+      method: 'GET',
     });
   }
 }
