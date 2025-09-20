@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useRef, useEffect } from 'react';
 
 interface ConversationMessage {
@@ -51,7 +49,7 @@ interface TraumaInfo {
     detailedDescription: string;
 }
 
-export default function Home() {
+export default function HomePage() {
     const [status, setStatus] = useState('idle');
     const [error, setError] = useState('');
     const [conversations, setConversations] = useState<ConversationMessage[]>([]);
@@ -194,8 +192,8 @@ export default function Home() {
             return;
         }
 
-        let progressInterval: NodeJS.Timeout | null = null;
-        let analysisInterval: NodeJS.Timeout | null = null;
+        let progressInterval: number | null = null;
+        let analysisInterval: number | null = null;
 
         try {
             setIsAnalyzingPhoto(true);

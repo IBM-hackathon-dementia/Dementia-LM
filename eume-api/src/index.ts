@@ -369,7 +369,7 @@ export default {
 		const corsHeaders = {
 			'Access-Control-Allow-Origin': '*',
 			'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-			'Access-Control-Allow-Headers': 'Content-Type, X-User-ID, X-Photo-Session, X-Image-Analysis, X-Trauma-Info',
+			'Access-Control-Allow-Headers': 'Content-Type, X-User-ID, X-Photo-Session, X-Image-Analysis, X-Trauma-Info, X-Text-Input',
 		};
 
 		if (request.method === 'OPTIONS') {
@@ -390,37 +390,106 @@ export default {
 			return await handleTraumaInfo(request, env, corsHeaders);
 		}
 
-		if (!request.headers.get('Content-Type')?.includes('audio')) {
-			return new Response(JSON.stringify({ error: '음성 데이터만 처리할 수 있습니다.' }), {
-				status: 400,
-				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-			});
-		}
-
 		try {
-			const audioData = await request.arrayBuffer();
+			// FormData에서 오디오 파일 및 사진 데이터 추출
+			const formData = await request.formData();
+			const audioFile = formData.get('audio') as File;
+			const textInput = formData.get('text') as string;
+			const photosData = formData.get('photos') as string;
+			const isTextInput = request.headers.get('X-Text-Input') === 'true';
 
-			const sttResponse = await env.AI.run('@cf/openai/whisper', {
-				audio: [...new Uint8Array(audioData)],
-				language: 'ko',
-			});
-
-			if (!sttResponse.text || sttResponse.text.trim() === '') {
-				throw new Error('음성을 인식하지 못했어요. 더 명확하게 한국어로 말씀해 주세요.');
+			// 오디오 또는 텍스트 중 하나는 있어야 함
+			if (!audioFile && !textInput) {
+				return new Response(JSON.stringify({ error: '음성 데이터 또는 텍스트가 필요합니다.' }), {
+					status: 400,
+					headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+				});
 			}
 
-			// 한국어 텍스트 검증
-			const text = sttResponse.text.trim();
-			const koreanPattern = /[가-힣]/;
-			const englishPattern = /[a-zA-Z]{3,}/; // 3글자 이상 연속 영어
+			let userText = '';
 
-			// 한국어가 전혀 포함되지 않거나 긴 영어 단어가 포함된 경우
-			if (!koreanPattern.test(text) || englishPattern.test(text)) {
-				throw new Error('한국어로만 말씀해 주세요. 다른 언어는 인식할 수 없습니다.');
+			// 패턴 미리 정의
+			const koreanPattern = /[가-힣]/;
+			const englishOnlyPattern = /^[a-zA-Z\s]+$/; // 오직 영어만으로 구성된 경우
+
+			if (isTextInput && textInput) {
+				// 텍스트 입력 처리
+				userText = textInput.trim();
+			} else if (audioFile) {
+				// 오디오 입력 처리
+				const audioData = await audioFile.arrayBuffer();
+
+				const sttResponse = await env.AI.run('@cf/openai/whisper', {
+					audio: [...new Uint8Array(audioData)],
+					language: 'ko',
+				});
+
+				if (!sttResponse.text || sttResponse.text.trim() === '') {
+					throw new Error('음성을 인식하지 못했어요. 더 명확하게 한국어로 말씀해 주세요.');
+				}
+
+				// 영어로 인식된 경우 기본 한국어 응답으로 처리
+				if (englishOnlyPattern.test(sttResponse.text.trim())) {
+					console.log('영어로 인식된 음성을 한국어 대화로 처리:', sttResponse.text);
+
+					// 영어 단어에 따라 더 나은 한국어 응답 추정
+					const englishText = sttResponse.text.toLowerCase();
+					if (englishText.includes('yes') || englishText.includes('okay') || englishText.includes('sure')) {
+						userText = '네';
+					} else if (englishText.includes('no') || englishText.includes('nope')) {
+						userText = '아니요';
+					} else if (englishText.includes('good') || englishText.includes('nice') || englishText.includes('great')) {
+						userText = '좋아요';
+					} else {
+						userText = '잘 모르겠어요'; // 기본값
+					}
+				} else {
+					userText = sttResponse.text.trim();
+				}
+
+				console.log('최종 처리된 텍스트:', userText);
+			}
+
+			// 빈 텍스트 체크
+			if (!userText || userText.trim() === '') {
+				console.log('빈 텍스트 감지:', userText);
+				throw new Error('음성을 인식하지 못했어요. 다시 시도해주세요.');
+			}
+
+			// 한국어 텍스트 검증 (이미 영어는 처리되었으므로 더 관대하게)
+			// 한국어가 전혀 포함되지 않은 경우만 체크 (숫자, 특수문자만 있는 경우 등)
+			if (!koreanPattern.test(userText) && userText.length > 5) {
+				console.log('한국어가 포함되지 않은 텍스트:', userText);
+				throw new Error('한국어로만 말씀해 주세요.');
 			}
 
 			const userId = request.headers.get('X-User-ID') || 'default-user';
             const hasPhotoSession = request.headers.get('X-Photo-Session') === 'true';
+
+            // 업로드된 사진 데이터 처리
+            let uploadedPhotos = [];
+            let photoContext = '';
+
+            if (photosData) {
+                try {
+                    uploadedPhotos = JSON.parse(photosData);
+
+                    // 사진 정보를 기반으로 회상 치료 컨텍스트 생성
+                    if (uploadedPhotos.length > 0) {
+                        const photoDescriptions = uploadedPhotos.map((photo: any) => {
+                            let description = `사진: ${photo.description || '제목 없음'}`;
+                            if (photo.tags && photo.tags.length > 0) {
+                                description += ` (태그: ${photo.tags.join(', ')})`;
+                            }
+                            return description;
+                        }).join('\n');
+
+                        photoContext = `\n\n=== 업로드된 사진 정보 ===\n사용자가 업로드한 ${uploadedPhotos.length}장의 사진:\n${photoDescriptions}\n\n이 사진들을 활용하여 회상 치료 대화를 진행해주세요.`;
+                    }
+                } catch (error) {
+                    console.error('사진 데이터 파싱 실패:', error);
+                }
+            }
 
             let imageAnalysis = '';
             const encodedImageAnalysis = request.headers.get('X-Image-Analysis');
@@ -454,7 +523,7 @@ export default {
 
                     // 트라우마 키워드 체크
                     const matchedKeywords = traumaInfo.trauma_keywords.filter((term: string) =>
-                        sttResponse.text.toLowerCase().includes(term.toLowerCase())
+                        userText.toLowerCase().includes(term.toLowerCase())
                     );
 
                     traumaCheck = {
@@ -466,17 +535,19 @@ export default {
                 }
             }
 
-            const relevantGuidance = ragSystem.retrieveRelevantGuidance(sttResponse.text);
+            const relevantGuidance = ragSystem.retrieveRelevantGuidance(userText);
 
             let conversationStage: 'initial' | 'conversation' | 'reminiscence' | 'closure' = 'conversation';
 
             if (hasPhotoSession && history.photoSession?.isActive) {
                 conversationStage = 'reminiscence';
+            } else if (uploadedPhotos.length > 0) {
+                conversationStage = 'reminiscence'; // 사진이 업로드된 경우 회상 치료 모드
             } else if (history.messages.length === 0) {
                 conversationStage = 'initial';
-            } else if (sttResponse.text.includes('기억') || sttResponse.text.includes('옛날') || sttResponse.text.includes('어린')) {
+            } else if (userText.includes('기억') || userText.includes('옛날') || userText.includes('어린')) {
                 conversationStage = 'reminiscence';
-            } else if (sttResponse.text.includes('고마워') || sttResponse.text.includes('끝') || sttResponse.text.includes('안녕')) {
+            } else if (userText.includes('고마워') || userText.includes('끝') || userText.includes('안녕')) {
                 conversationStage = 'closure';
             }
 
@@ -557,11 +628,16 @@ ${traumaInfo ? `=== 🚨 트라우마 보호 지침 (매우 중요) ===
 
 ${traumaCheck.hasTrauma ? `**⚠️ 현재 위험**: 환자가 트라우마 관련 내용을 언급했습니다. 즉시 긍정적이고 안전한 주제로 전환하세요.` : ''}` : ''}`;
 
+			// 업로드된 사진 정보를 시스템 프롬프트에 추가
+			if (photoContext) {
+				systemPrompt += photoContext;
+			}
+
 			if (hasPhotoSession && imageAnalysis) {
 				// 기억이 안 난다는 표현 감지
 				const memoryDifficultyKeywords = ['모르', '잊', '헷갈', '안 나', '못하겠', '어려워', '기억이 안', '기억이 잘', '기억이 가물가물'];
 				const hasMemoryDifficulty = memoryDifficultyKeywords.some(keyword =>
-					sttResponse.text.includes(keyword)
+					userText.includes(keyword)
 				);
 
 				systemPrompt += `
@@ -638,15 +714,14 @@ ${hasMemoryDifficulty ? `
 				...recentMessages,
                 {
                     role: 'user',
-                    content: sttResponse.text,
+                    content: userText,
                 },
 			];
 
 			const llmResponse = await env.AI.run('@cf/google/gemma-3-12b-it', { messages });
 
             // 사용자 반응 분석 (긍정적 반응인지 판단)
-            const userResponse = sttResponse.text;
-            const isPositiveResponse = await analyzeUserResponse(userResponse, env.AI);
+            const isPositiveResponse = await analyzeUserResponse(userText, env.AI);
 
             // 이전 메시지에서 사용된 키워드가 있다면 효과성 기록 (Supabase가 있을 때만)
             if (personalizedQSystem && recentMessages.length > 0) {
@@ -665,9 +740,9 @@ ${hasMemoryDifficulty ? `
 
             // 개인화된 차기 질문 생성 (Supabase가 있고 대화가 끝나지 않았을 때)
             let personalizedSuggestion = '';
-            if (personalizedQSystem && !sttResponse.text.includes('고마워') && !sttResponse.text.includes('끝') && !sttResponse.text.includes('안녕')) {
+            if (personalizedQSystem && !userText.includes('고마워') && !userText.includes('끝') && !userText.includes('안녕')) {
                 try {
-                    const nextQuestion = await personalizedQSystem.generatePersonalizedQuestion(userId, env.AI, sttResponse.text);
+                    const nextQuestion = await personalizedQSystem.generatePersonalizedQuestion(userId, env.AI, userText);
                     if (nextQuestion.expectedEffectiveness > 0.6) {
                         personalizedSuggestion = `\n\n[다음 대화 제안: ${nextQuestion.question}]`;
                     }
@@ -678,11 +753,11 @@ ${hasMemoryDifficulty ? `
 
             // 대화 히스토리 저장 (D1 데이터베이스 사용)
             const timestamp = Date.now();
-            await d1Storage.addConversationMessage(userId, 'user', sttResponse.text, timestamp);
+            await d1Storage.addConversationMessage(userId, 'user', userText, timestamp);
             await d1Storage.addConversationMessage(userId, 'assistant', llmResponse.response || '', timestamp + 1);
 
 			const finalResponse = {
-				userText: sttResponse.text,
+				userText: userText,
 				responseText: (llmResponse.response || '') + personalizedSuggestion
 			};
 
@@ -690,12 +765,14 @@ ${hasMemoryDifficulty ? `
 				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 			});
 		} catch (error: unknown) {
+			console.error('🔥 백엔드 오류 발생:', error);
 			const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
 			const errorDetails = {
 				error: errorMessage,
 				timestamp: new Date().toISOString(),
 				stack: error instanceof Error ? error.stack : undefined,
 			};
+			console.error('오류 상세:', errorDetails);
 
 			return new Response(JSON.stringify(errorDetails), {
 				status: 500,
