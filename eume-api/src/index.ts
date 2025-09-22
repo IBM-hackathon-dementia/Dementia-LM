@@ -115,6 +115,152 @@ async function handleSignup(request: Request, env: Env, corsHeaders: Record<stri
 	}
 }
 
+async function handlePatientCreate(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
+	try {
+		console.log('🔍 환자 생성 요청 수신:', {
+			method: request.method,
+			url: request.url,
+			headers: Object.fromEntries(request.headers.entries()),
+		});
+
+		const patientData = await request.json() as {
+			name: string;
+			age: number;
+			gender: 'MALE' | 'FEMALE';
+			dementiaLevel: string;
+			triggerElements: string;
+			relationship: string;
+			memo: string;
+		};
+
+		console.log('✅ 파싱된 환자 데이터:', patientData);
+
+		if (!patientData.name || !patientData.age || !patientData.gender || !patientData.dementiaLevel || !patientData.relationship) {
+			return new Response(JSON.stringify({ error: '모든 필수 항목을 입력해주세요.' }), {
+				status: 400,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		const d1Storage = new D1Storage(env.DB);
+
+		// Create new patient
+		const patientId = crypto.randomUUID();
+		const patient = {
+			id: patientId,
+			name: patientData.name,
+			age: patientData.age,
+			gender: patientData.gender,
+			dementiaLevel: patientData.dementiaLevel,
+			triggerElements: patientData.triggerElements,
+			relationship: patientData.relationship,
+			memo: patientData.memo,
+			createdAt: new Date().toISOString(),
+		};
+
+		console.log('💾 환자 생성 시작:', { patientId, name: patientData.name });
+		await d1Storage.createPatient(patient);
+		console.log('✅ 환자 생성 완료');
+
+		const responseData = JSON.stringify(patient);
+		console.log('📤 환자 생성 성공 응답:', responseData);
+
+		return new Response(responseData, {
+			status: 201,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	} catch (error) {
+		console.error('❌ 환자 생성 처리 중 오류:', error);
+		const errorMessage = error instanceof Error ? error.message : '환자 생성 중 오류가 발생했습니다.';
+		const errorResponse = JSON.stringify({ error: errorMessage });
+		console.log('📤 에러 응답:', errorResponse);
+
+		return new Response(errorResponse, {
+			status: 500,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	}
+}
+
+async function handlePatientUpdate(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
+	try {
+		console.log('🔍 환자 수정 요청 수신:', {
+			method: request.method,
+			url: request.url,
+			headers: Object.fromEntries(request.headers.entries()),
+		});
+
+		const patientData = await request.json() as {
+			name: string;
+			age: number;
+			gender: 'MALE' | 'FEMALE';
+			dementiaLevel: string;
+			triggerElements: string;
+			relationship: string;
+			memo: string;
+		};
+
+		console.log('✅ 파싱된 환자 수정 데이터:', patientData);
+
+		if (!patientData.name || !patientData.age || !patientData.gender || !patientData.dementiaLevel || !patientData.relationship) {
+			return new Response(JSON.stringify({ error: '모든 필수 항목을 입력해주세요.' }), {
+				status: 400,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		// Extract userId from URL path
+		const url = new URL(request.url);
+		const pathParts = url.pathname.split('/');
+		const userId = pathParts[3]; // /api/users/{userId}/info
+
+		if (!userId) {
+			return new Response(JSON.stringify({ error: '사용자 ID가 필요합니다.' }), {
+				status: 400,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		const d1Storage = new D1Storage(env.DB);
+
+		const updatedPatient = {
+			name: patientData.name,
+			age: patientData.age,
+			gender: patientData.gender,
+			dementiaLevel: patientData.dementiaLevel,
+			triggerElements: patientData.triggerElements,
+			relationship: patientData.relationship,
+			memo: patientData.memo,
+			updatedAt: new Date().toISOString(),
+		};
+
+		console.log('💾 환자 수정 시작:', { userId, name: patientData.name });
+		await d1Storage.updatePatient(userId, updatedPatient);
+		console.log('✅ 환자 수정 완료');
+
+		const responseData = JSON.stringify({
+			id: userId,
+			...updatedPatient,
+		});
+		console.log('📤 환자 수정 성공 응답:', responseData);
+
+		return new Response(responseData, {
+			status: 200,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	} catch (error) {
+		console.error('❌ 환자 수정 처리 중 오류:', error);
+		const errorMessage = error instanceof Error ? error.message : '환자 수정 중 오류가 발생했습니다.';
+		const errorResponse = JSON.stringify({ error: errorMessage });
+		console.log('📤 에러 응답:', errorResponse);
+
+		return new Response(errorResponse, {
+			status: 500,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	}
+}
+
 async function handleLogin(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
 	try {
 		const loginData = await request.json() as {
@@ -582,6 +728,14 @@ export default {
 
 		if (url.pathname === '/api/auth/login') {
 			return await handleLogin(request, env, corsHeaders);
+		}
+
+		if (url.pathname.startsWith('/api/users/') && url.pathname.endsWith('/info') && request.method === 'POST') {
+			return await handlePatientCreate(request, env, corsHeaders);
+		}
+
+		if (url.pathname.startsWith('/api/users/') && url.pathname.endsWith('/info') && request.method === 'PUT') {
+			return await handlePatientUpdate(request, env, corsHeaders);
 		}
 
 		if (url.pathname === '/analyze-image') {

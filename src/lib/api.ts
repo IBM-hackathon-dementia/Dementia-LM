@@ -199,6 +199,50 @@ export interface UserDeleteResponse {
   deletedAt: string;
 }
 
+export interface PatientCreateRequest {
+  name: string;
+  age: number;
+  gender: 'MALE' | 'FEMALE';
+  dementiaLevel: string;
+  triggerElements: string;
+  relationship: string;
+  memo: string;
+}
+
+export interface PatientCreateResponse {
+  id: string;
+  name: string;
+  age: number;
+  gender: 'MALE' | 'FEMALE';
+  dementiaLevel: string;
+  triggerElements: string;
+  relationship: string;
+  memo: string;
+  createdAt: string;
+}
+
+export interface PatientUpdateRequest {
+  name: string;
+  age: number;
+  gender: 'MALE' | 'FEMALE';
+  dementiaLevel: string;
+  triggerElements: string;
+  relationship: string;
+  memo: string;
+}
+
+export interface PatientUpdateResponse {
+  id: string;
+  name: string;
+  age: number;
+  gender: 'MALE' | 'FEMALE';
+  dementiaLevel: string;
+  triggerElements: string;
+  relationship: string;
+  memo: string;
+  updatedAt: string;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -398,6 +442,20 @@ class ApiClient {
   async deleteUser(userId: string): Promise<UserDeleteResponse> {
     return this.request<UserDeleteResponse>(`/api/users/${userId}`, {
       method: 'DELETE',
+    });
+  }
+
+  async createPatient(userId: string, data: PatientCreateRequest): Promise<PatientCreateResponse> {
+    return this.request<PatientCreateResponse>(`/api/users/${userId}/info`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updatePatient(userId: string, patientId: string, data: PatientUpdateRequest): Promise<PatientUpdateResponse> {
+    return this.request<PatientUpdateResponse>(`/api/users/${userId}/info`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
     });
   }
 }

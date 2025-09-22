@@ -65,6 +65,19 @@ CREATE TABLE IF NOT EXISTS trauma_info (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
+-- 환자 테이블
+CREATE TABLE IF NOT EXISTS patients (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    age INTEGER NOT NULL,
+    gender TEXT NOT NULL CHECK (gender IN ('MALE', 'FEMALE')),
+    dementia_level TEXT NOT NULL,
+    trigger_elements TEXT, -- 쉼표로 구분된 문자열
+    relationship TEXT NOT NULL,
+    memo TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 인덱스 생성
 CREATE INDEX IF NOT EXISTS idx_auth_users_username ON auth_users(username);
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_user_id ON conversation_messages(user_id);
@@ -73,3 +86,4 @@ CREATE INDEX IF NOT EXISTS idx_photo_sessions_user_id ON photo_sessions(user_id)
 CREATE INDEX IF NOT EXISTS idx_photo_sessions_active ON photo_sessions(user_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_effective_topics_user_id ON effective_topics(user_id);
 CREATE INDEX IF NOT EXISTS idx_trauma_info_user_id ON trauma_info(user_id);
+CREATE INDEX IF NOT EXISTS idx_patients_id ON patients(id);

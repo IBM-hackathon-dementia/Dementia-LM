@@ -54,6 +54,18 @@ export interface TraumaInfo {
   updated_at: string;
 }
 
+export interface Patient {
+  id: string;
+  name: string;
+  age: number;
+  gender: 'MALE' | 'FEMALE';
+  dementiaLevel: string;
+  triggerElements: string;
+  relationship: string;
+  memo: string;
+  createdAt: string;
+}
+
 export class D1Storage {
   private db: D1Database;
 
@@ -407,5 +419,53 @@ export class D1Storage {
   private async verifyPassword(password: string, hash: string): Promise<boolean> {
     const computedHash = await this.hashPassword(password);
     return computedHash === hash;
+  }
+
+  // 환자 생성
+  async createPatient(patient: Patient): Promise<void> {
+    await this.db.prepare(`
+      INSERT INTO patients (id, name, age, gender, dementia_level, trigger_elements, relationship, memo, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      patient.id,
+      patient.name,
+      patient.age,
+      patient.gender,
+      patient.dementiaLevel,
+      patient.triggerElements,
+      patient.relationship,
+      patient.memo,
+      patient.createdAt
+    ).run();
+  }
+
+  // 환자 수정 (현재는 사용자당 하나의 환자만 지원)
+  async updatePatient(userId: string, patientData: {
+    name: string;
+    age: number;
+    gender: 'MALE' | 'FEMALE';
+    dementiaLevel: string;
+    triggerElements: string;
+    relationship: string;
+    memo: string;
+    updatedAt: string;
+  }): Promise<void> {
+    // 현재는 사용자당 첫 번째 환자를 업데이트 (임시 구현)
+    const result = await this.db.prepare(`
+      UPDATE patients
+      SET name = ?, age = ?, gender = ?, dementia_level = ?, trigger_elements = ?, relationship = ?, memo = ?, created_at = ?
+      WHERE id = (SELECT id FROM patients ORDER BY created_at ASC LIMIT 1)
+    `).bind(
+      patientData.name,
+      patientData.age,
+      patientData.gender,
+      patientData.dementiaLevel,
+      patientData.triggerElements,
+      patientData.relationship,
+      patientData.memo,
+      patientData.updatedAt
+    ).run();
+
+    console.log('환자 업데이트 결과:', result);
   }
 }
