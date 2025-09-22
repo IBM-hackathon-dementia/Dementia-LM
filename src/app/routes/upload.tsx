@@ -1,7 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRecoilValue } from 'recoil';
 import { authState } from '../recoil/atoms';
+import { apiClient } from '../../lib/api';
+import type { UserImage } from '../../lib/api';
 
 interface UploadedPhoto {
   id: string;
@@ -19,6 +21,8 @@ const UploadPage: React.FC = () => {
   const [selectedPhoto, setSelectedPhoto] = useState<UploadedPhoto | null>(null);
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
+  const [savedPhotos, setSavedPhotos] = useState<UserImage[]>([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,20 +53,23 @@ const UploadPage: React.FC = () => {
 
     setUploading(true);
     try {
-      // 사진을 localStorage에 저장 (실제 프로덕션에서는 서버나 클라우드 스토리지 사용)
-      const savedPhotos = JSON.parse(localStorage.getItem(`photos_${auth.selectedPatient.id}`) || '[]');
-
-      const photoData = {
-        id: selectedPhoto.id,
-        preview: selectedPhoto.preview,
+      console.log('🔄 Starting image upload...', {
+        userId: auth.selectedPatient.id,
+        fileName: selectedPhoto.file.name,
         description,
-        tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-        uploadedAt: new Date().toISOString(),
-        fileName: selectedPhoto.file.name
+        tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+      });
+
+      // 이미지 업로드 API 호출
+      const uploadData = {
+        userId: auth.selectedPatient.id,
+        imageUrl: selectedPhoto.preview, // Base64 data URL
+        description,
+        scheduledDate: new Date().toISOString()
       };
 
-      savedPhotos.push(photoData);
-      localStorage.setItem(`photos_${auth.selectedPatient.id}`, JSON.stringify(savedPhotos));
+      const uploadResult = await apiClient.uploadImage(uploadData);
+      console.log('✅ Image upload successful:', uploadResult);
 
       // 사진 목록에서 제거하고 선택 해제
       setPhotos(prev => prev.filter(p => p.id !== selectedPhoto.id));
@@ -70,9 +77,12 @@ const UploadPage: React.FC = () => {
       setDescription('');
       setTags('');
 
+      // 저장된 사진 목록 새로고침
+      await loadSavedPhotos();
+
       alert('사진이 성공적으로 저장되었습니다!');
     } catch (error) {
-      console.error('사진 저장 실패:', error);
+      console.error('❌ Image upload failed:', error);
       alert('사진 저장에 실패했습니다.');
     } finally {
       setUploading(false);
@@ -88,12 +98,28 @@ const UploadPage: React.FC = () => {
     }
   };
 
-  const getSavedPhotos = () => {
-    if (!auth.selectedPatient) return [];
-    return JSON.parse(localStorage.getItem(`photos_${auth.selectedPatient.id}`) || '[]');
+  const loadSavedPhotos = async () => {
+    if (!auth.selectedPatient) return;
+
+    try {
+      setLoadingPhotos(true);
+      console.log('🔄 Loading saved photos for user:', auth.selectedPatient.id);
+
+      const response = await apiClient.getUserImages(auth.selectedPatient.id);
+      console.log('✅ Saved photos loaded:', response);
+
+      setSavedPhotos(response.images);
+    } catch (error) {
+      console.error('❌ Failed to load saved photos:', error);
+      setSavedPhotos([]);
+    } finally {
+      setLoadingPhotos(false);
+    }
   };
 
-  const savedPhotos = getSavedPhotos();
+  useEffect(() => {
+    loadSavedPhotos();
+  }, [auth.selectedPatient]);
 
   if (!auth.selectedPatient) {
     navigate('/dashboard');
@@ -168,9 +194,22 @@ const UploadPage: React.FC = () => {
             {/* 업로드된 사진 미리보기 */}
             {photos.length > 0 && (
               <div style={{ marginBottom: 'var(--space-6)' }}>
-                <h3 className="text-lg" style={{ marginBottom: 'var(--space-4)' }}>
-                  업로드할 사진들
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                  <h3 className="text-lg">
+                    업로드할 사진들 ({photos.length}개)
+                  </h3>
+                  <button
+                    onClick={() => {
+                      if (photos.length > 0) {
+                        setSelectedPhoto(photos[0]);
+                      }
+                    }}
+                    className="btn btn-primary"
+                    disabled={photos.length === 0}
+                  >
+                    📷 사진 업로드 시작
+                  </button>
+                </div>
                 <div className="grid grid-auto" style={{ gap: 'var(--space-4)' }}>
                   {photos.map((photo) => (
                     <div
@@ -211,12 +250,26 @@ const UploadPage: React.FC = () => {
                             cursor: 'pointer',
                             fontSize: '18px'
                           }}
+                          title="사진 삭제"
                         >
                           ×
                         </button>
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {/* 업로드 안내 메시지 */}
+                <div style={{
+                  marginTop: 'var(--space-4)',
+                  padding: 'var(--space-4)',
+                  backgroundColor: 'var(--color-info-light)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-info)'
+                }}>
+                  <p className="text-base" style={{ margin: 0, color: 'var(--color-info-dark)' }}>
+                    💡 사진을 클릭하여 설명을 입력하고 업로드하세요. 각 사진마다 개별적으로 업로드됩니다.
+                  </p>
                 </div>
               </div>
             )}
@@ -317,16 +370,21 @@ const UploadPage: React.FC = () => {
           </section>
 
           {/* 저장된 사진들 */}
-          {savedPhotos.length > 0 && (
-            <section className="card-elevated">
-              <h2 className="text-2xl" style={{ marginBottom: 'var(--space-6)' }}>
-                저장된 사진들 ({savedPhotos.length}개)
-              </h2>
+          <section className="card-elevated">
+            <h2 className="text-2xl" style={{ marginBottom: 'var(--space-6)' }}>
+              저장된 사진들 {loadingPhotos ? '(로딩 중...)' : `(${savedPhotos.length}개)`}
+            </h2>
+
+            {loadingPhotos ? (
+              <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+                <p className="text-lg text-muted">사진을 불러오는 중...</p>
+              </div>
+            ) : savedPhotos.length > 0 ? (
               <div className="grid grid-auto" style={{ gap: 'var(--space-4)' }}>
-                {savedPhotos.map((photo: any) => (
+                {savedPhotos.map((photo) => (
                   <div key={photo.id} className="card">
                     <img
-                      src={photo.preview}
+                      src={photo.imageUrl}
                       alt={photo.description}
                       style={{
                         width: '100%',
@@ -339,29 +397,39 @@ const UploadPage: React.FC = () => {
                     <h4 className="text-base" style={{ marginBottom: 'var(--space-2)' }}>
                       {photo.description}
                     </h4>
-                    {photo.tags && photo.tags.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
-                        {photo.tags.map((tag: string, index: number) => (
-                          <span
-                            key={index}
-                            style={{
-                              background: 'var(--color-primary-light)',
-                              color: 'var(--color-primary-dark)',
-                              padding: '2px 8px',
-                              borderRadius: 'var(--radius-sm)',
-                              fontSize: 'var(--text-sm)'
-                            }}
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <div style={{ marginBottom: 'var(--space-2)' }}>
+                      <p className="text-sm text-muted">
+                        업로드: {new Date(photo.uploadedAt).toLocaleDateString('ko-KR')}
+                      </p>
+                      {photo.lastUsedAt && (
+                        <p className="text-sm text-muted">
+                          마지막 사용: {new Date(photo.lastUsedAt).toLocaleDateString('ko-KR')}
+                        </p>
+                      )}
+                      <p className="text-sm text-muted">
+                        사용 횟수: {photo.usageCount}회
+                      </p>
+                    </div>
+                    <div style={{
+                      padding: '4px 8px',
+                      background: photo.status === 'ACTIVE' ? 'var(--color-success-light)' : 'var(--color-warning-light)',
+                      color: photo.status === 'ACTIVE' ? 'var(--color-success-dark)' : 'var(--color-warning-dark)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: 'var(--text-sm)',
+                      textAlign: 'center'
+                    }}>
+                      {photo.status === 'ACTIVE' ? '활성' : '비활성'}
+                    </div>
                   </div>
                 ))}
               </div>
-            </section>
-          )}
+            ) : (
+              <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+                <p className="text-lg text-muted">저장된 사진이 없습니다.</p>
+                <p className="text-base text-muted">위에서 새 사진을 업로드해보세요!</p>
+              </div>
+            )}
+          </section>
         </main>
       </div>
     </div>

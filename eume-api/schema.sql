@@ -78,6 +78,20 @@ CREATE TABLE IF NOT EXISTS patients (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 사용자 이미지 테이블
+CREATE TABLE IF NOT EXISTS user_images (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    image_url TEXT NOT NULL,
+    description TEXT NOT NULL,
+    scheduled_date DATETIME NOT NULL,
+    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    usage_count INTEGER DEFAULT 0,
+    last_used_at DATETIME,
+    FOREIGN KEY (user_id) REFERENCES auth_users(id)
+);
+
 -- 인덱스 생성
 CREATE INDEX IF NOT EXISTS idx_auth_users_username ON auth_users(username);
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_user_id ON conversation_messages(user_id);
@@ -87,3 +101,5 @@ CREATE INDEX IF NOT EXISTS idx_photo_sessions_active ON photo_sessions(user_id, 
 CREATE INDEX IF NOT EXISTS idx_effective_topics_user_id ON effective_topics(user_id);
 CREATE INDEX IF NOT EXISTS idx_trauma_info_user_id ON trauma_info(user_id);
 CREATE INDEX IF NOT EXISTS idx_patients_id ON patients(id);
+CREATE INDEX IF NOT EXISTS idx_user_images_user_id ON user_images(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_images_uploaded_at ON user_images(uploaded_at);

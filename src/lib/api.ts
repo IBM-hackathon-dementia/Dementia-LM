@@ -388,12 +388,7 @@ class ApiClient {
   async uploadImage(data: ImageUploadRequest): Promise<ImageUploadResponse> {
     return this.request<ImageUploadResponse>('/api/images/upload', {
       method: 'POST',
-      headers: {
-        'userId': data.userId,
-        'imageUrl': data.imageUrl,
-        'description': data.description,
-        'scheduledDate': data.scheduledDate,
-      },
+      body: JSON.stringify(data),
     });
   }
 

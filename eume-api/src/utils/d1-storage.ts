@@ -45,6 +45,18 @@ export interface EffectiveTopic {
   updated_at: string;
 }
 
+export interface UserImage {
+  id: string;
+  userId: string;
+  imageUrl: string;
+  description: string;
+  scheduledDate: string;
+  uploadedAt: string;
+  status: string;
+  usageCount: number;
+  lastUsedAt?: string;
+}
+
 export interface TraumaInfo {
   id: number;
   user_id: string;
@@ -479,5 +491,59 @@ export class D1Storage {
 
     console.log('🗑️ D1Storage: 환자 삭제 결과:', result);
     return result.meta?.changes || 0;
+  }
+
+  // 이미지 업로드 저장
+  async storeImageUpload(imageData: {
+    id: string;
+    userId: string;
+    imageUrl: string;
+    description: string;
+    scheduledDate: string;
+    uploadedAt: string;
+    status: string;
+    usageCount: number;
+  }): Promise<void> {
+    console.log('📷 D1Storage: 이미지 업로드 저장 시작:', imageData.id);
+
+    const result = await this.db.prepare(`
+      INSERT INTO user_images (id, user_id, image_url, description, scheduled_date, uploaded_at, status, usage_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      imageData.id,
+      imageData.userId,
+      imageData.imageUrl,
+      imageData.description,
+      imageData.scheduledDate,
+      imageData.uploadedAt,
+      imageData.status,
+      imageData.usageCount
+    ).run();
+
+    console.log('📷 D1Storage: 이미지 업로드 저장 결과:', result);
+  }
+
+  // 사용자 이미지 조회
+  async getUserImages(userId: string): Promise<UserImage[]> {
+    console.log('📷 D1Storage: 사용자 이미지 조회 시작, userId:', userId);
+
+    const result = await this.db.prepare(`
+      SELECT * FROM user_images WHERE user_id = ? ORDER BY uploaded_at DESC
+    `).bind(userId).all();
+
+    const images = (result.results || []).map((row: any) => ({
+      id: row.id,
+      userId: row.user_id,
+      imageUrl: row.image_url,
+      description: row.description,
+      scheduledDate: row.scheduled_date,
+      uploadedAt: row.uploaded_at,
+      status: row.status,
+      usageCount: row.usage_count || 0,
+      lastUsedAt: row.last_used_at || undefined
+    }));
+
+    console.log('📷 D1Storage: 사용자 이미지 조회 결과:', images.length, '개');
+    return images;
   }
 }

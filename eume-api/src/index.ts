@@ -900,6 +900,119 @@ function extractKeywordsFromMessage(message: string): string[] {
 	return keywords.filter((keyword) => message.includes(keyword));
 }
 
+// 이미지 업로드 핸들러
+async function handleImageUpload(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
+	try {
+		console.log('📷 이미지 업로드 요청 수신:', {
+			method: request.method,
+			url: request.url,
+		});
+
+		const uploadData = await request.json() as {
+			userId: string;
+			imageUrl: string;
+			description: string;
+			scheduledDate: string;
+		};
+
+		console.log('✅ 파싱된 업로드 데이터:', {
+			userId: uploadData.userId,
+			description: uploadData.description,
+			imageUrlLength: uploadData.imageUrl?.length || 0,
+			scheduledDate: uploadData.scheduledDate
+		});
+
+		// D1 데이터베이스에 이미지 정보 저장
+		const storage = new D1Storage(env.DB);
+		const imageId = crypto.randomUUID();
+
+		await storage.storeImageUpload({
+			id: imageId,
+			userId: uploadData.userId,
+			imageUrl: uploadData.imageUrl,
+			description: uploadData.description,
+			scheduledDate: uploadData.scheduledDate,
+			uploadedAt: new Date().toISOString(),
+			status: 'ACTIVE',
+			usageCount: 0
+		});
+
+		const response = {
+			id: imageId,
+			userId: uploadData.userId,
+			imageUrl: uploadData.imageUrl,
+			description: uploadData.description,
+			scheduledDate: uploadData.scheduledDate,
+			uploadedAt: new Date().toISOString(),
+			status: 'ACTIVE'
+		};
+
+		console.log('✅ 이미지 업로드 성공:', response);
+		return new Response(JSON.stringify(response), {
+			status: 200,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
+		});
+	} catch (error) {
+		console.error('❌ 이미지 업로드 실패:', error);
+		return new Response(
+			JSON.stringify({
+				error: '이미지 업로드에 실패했습니다.',
+				details: error instanceof Error ? error.message : String(error)
+			}),
+			{
+				status: 500,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
+			}
+		);
+	}
+}
+
+// 사용자 이미지 조회 핸들러
+async function handleGetUserImages(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
+	try {
+		const url = new URL(request.url);
+		const userId = url.pathname.split('/').pop();
+
+		if (!userId) {
+			return new Response(
+				JSON.stringify({ error: '사용자 ID가 필요합니다.' }),
+				{
+					status: 400,
+					headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
+				}
+			);
+		}
+
+		console.log('📷 사용자 이미지 조회:', { userId });
+
+		const storage = new D1Storage(env.DB);
+		const images = await storage.getUserImages(userId);
+
+		const response = {
+			images: images,
+			totalCount: images.length
+		};
+
+		console.log('✅ 사용자 이미지 조회 성공:', { userId, count: images.length });
+		return new Response(JSON.stringify(response), {
+			status: 200,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
+		});
+	} catch (error) {
+		console.error('❌ 사용자 이미지 조회 실패:', error);
+		return new Response(
+			JSON.stringify({
+				error: '사용자 이미지 조회에 실패했습니다.',
+				details: error instanceof Error ? error.message : String(error)
+			}),
+			{
+				status: 500,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
+			}
+		);
+	}
+}
+
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const corsHeaders = {
@@ -953,6 +1066,15 @@ export default {
 		// Legacy report generation endpoint for direct HTML reports
 		if (url.pathname === '/api/generate-report' && request.method === 'POST') {
 			return await handleReportGeneration(request, env, corsHeaders);
+		}
+
+		// Image API endpoints
+		if (url.pathname === '/api/images/upload' && request.method === 'POST') {
+			return await handleImageUpload(request, env, corsHeaders);
+		}
+
+		if (url.pathname.startsWith('/api/images/user/') && request.method === 'GET') {
+			return await handleGetUserImages(request, env, corsHeaders);
 		}
 
 		if (url.pathname === '/analyze-image') {
