@@ -5,6 +5,15 @@ export interface User {
   last_interaction_at: string;
 }
 
+export interface AuthUser {
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ConversationMessage {
   id: number;
   user_id: string;
@@ -36,6 +45,18 @@ export interface EffectiveTopic {
   updated_at: string;
 }
 
+export interface UserImage {
+  id: string;
+  userId: string;
+  imageUrl: string;
+  description: string;
+  scheduledDate: string;
+  uploadedAt: string;
+  status: string;
+  usageCount: number;
+  lastUsedAt?: string;
+}
+
 export interface TraumaInfo {
   id: number;
   user_id: string;
@@ -43,6 +64,18 @@ export interface TraumaInfo {
   detailed_description: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface Patient {
+  id: string;
+  name: string;
+  age: number;
+  gender: 'MALE' | 'FEMALE';
+  dementiaLevel: string;
+  triggerElements: string;
+  relationship: string;
+  memo: string;
+  createdAt: string;
 }
 
 export class D1Storage {
@@ -316,5 +349,201 @@ export class D1Storage {
     await this.db.prepare(`
       DELETE FROM trauma_info WHERE user_id = ?
     `).bind(userId).run();
+  }
+
+  // 새 사용자 생성
+  async createUser(user: {
+    id: string;
+    username: string;
+    name: string;
+    role: string;
+    createdAt: string;
+  }, password: string): Promise<void> {
+    // Simple password hashing (in production, use proper bcrypt or similar)
+    const hashedPassword = await this.hashPassword(password);
+
+    await this.db.prepare(`
+      INSERT INTO auth_users (id, username, name, role, password_hash, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      user.id,
+      user.username,
+      user.name,
+      user.role,
+      hashedPassword,
+      user.createdAt,
+      user.createdAt
+    ).run();
+  }
+
+  // 사용자명으로 사용자 조회
+  async getUserByUsername(username: string): Promise<AuthUser | null> {
+    const result = await this.db.prepare(`
+      SELECT id, username, name, role, created_at, updated_at
+      FROM auth_users
+      WHERE username = ?
+      LIMIT 1
+    `).bind(username).first();
+
+    return result as AuthUser | null;
+  }
+
+  // 사용자 인증
+  async authenticateUser(username: string, password: string): Promise<AuthUser | null> {
+    const result = await this.db.prepare(`
+      SELECT id, username, name, role, password_hash, created_at, updated_at
+      FROM auth_users
+      WHERE username = ?
+      LIMIT 1
+    `).bind(username).first();
+
+    if (!result) {
+      return null;
+    }
+
+    const user = result as any;
+    const isValidPassword = await this.verifyPassword(password, user.password_hash);
+
+    if (!isValidPassword) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+    };
+  }
+
+  // 간단한 패스워드 해싱 (프로덕션에서는 bcrypt 사용 권장)
+  private async hashPassword(password: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + 'salt123'); // 실제로는 랜덤 솔트 사용
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // 패스워드 검증
+  private async verifyPassword(password: string, hash: string): Promise<boolean> {
+    const computedHash = await this.hashPassword(password);
+    return computedHash === hash;
+  }
+
+  // 환자 생성
+  async createPatient(patient: Patient): Promise<void> {
+    await this.db.prepare(`
+      INSERT INTO patients (id, name, age, gender, dementia_level, trigger_elements, relationship, memo, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      patient.id,
+      patient.name,
+      patient.age,
+      patient.gender,
+      patient.dementiaLevel,
+      patient.triggerElements,
+      patient.relationship,
+      patient.memo,
+      patient.createdAt
+    ).run();
+  }
+
+  // 환자 수정 (현재는 사용자당 하나의 환자만 지원)
+  async updatePatient(userId: string, patientData: {
+    name: string;
+    age: number;
+    gender: 'MALE' | 'FEMALE';
+    dementiaLevel: string;
+    triggerElements: string;
+    relationship: string;
+    memo: string;
+    updatedAt: string;
+  }): Promise<void> {
+    // 현재는 사용자당 첫 번째 환자를 업데이트 (임시 구현)
+    const result = await this.db.prepare(`
+      UPDATE patients
+      SET name = ?, age = ?, gender = ?, dementia_level = ?, trigger_elements = ?, relationship = ?, memo = ?, created_at = ?
+      WHERE id = (SELECT id FROM patients ORDER BY created_at ASC LIMIT 1)
+    `).bind(
+      patientData.name,
+      patientData.age,
+      patientData.gender,
+      patientData.dementiaLevel,
+      patientData.triggerElements,
+      patientData.relationship,
+      patientData.memo,
+      patientData.updatedAt
+    ).run();
+
+    console.log('환자 업데이트 결과:', result);
+  }
+
+  // 환자 삭제 (현재는 사용자당 모든 환자 삭제)
+  async deletePatient(userId: string): Promise<number> {
+    console.log('🗑️ D1Storage: 환자 삭제 시작, userId:', userId);
+
+    const result = await this.db.prepare(`
+      DELETE FROM patients WHERE id = (SELECT id FROM patients ORDER BY created_at ASC LIMIT 1)
+    `).run();
+
+    console.log('🗑️ D1Storage: 환자 삭제 결과:', result);
+    return result.meta?.changes || 0;
+  }
+
+  // 이미지 업로드 저장
+  async storeImageUpload(imageData: {
+    id: string;
+    userId: string;
+    imageUrl: string;
+    description: string;
+    scheduledDate: string;
+    uploadedAt: string;
+    status: string;
+    usageCount: number;
+  }): Promise<void> {
+    console.log('📷 D1Storage: 이미지 업로드 저장 시작:', imageData.id);
+
+    const result = await this.db.prepare(`
+      INSERT INTO user_images (id, user_id, image_url, description, scheduled_date, uploaded_at, status, usage_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      imageData.id,
+      imageData.userId,
+      imageData.imageUrl,
+      imageData.description,
+      imageData.scheduledDate,
+      imageData.uploadedAt,
+      imageData.status,
+      imageData.usageCount
+    ).run();
+
+    console.log('📷 D1Storage: 이미지 업로드 저장 결과:', result);
+  }
+
+  // 사용자 이미지 조회
+  async getUserImages(userId: string): Promise<UserImage[]> {
+    console.log('📷 D1Storage: 사용자 이미지 조회 시작, userId:', userId);
+
+    const result = await this.db.prepare(`
+      SELECT * FROM user_images WHERE user_id = ? ORDER BY uploaded_at DESC
+    `).bind(userId).all();
+
+    const images = (result.results || []).map((row: any) => ({
+      id: row.id,
+      userId: row.user_id,
+      imageUrl: row.image_url,
+      description: row.description,
+      scheduledDate: row.scheduled_date,
+      uploadedAt: row.uploaded_at,
+      status: row.status,
+      usageCount: row.usage_count || 0,
+      lastUsedAt: row.last_used_at || undefined
+    }));
+
+    console.log('📷 D1Storage: 사용자 이미지 조회 결과:', images.length, '개');
+    return images;
   }
 }

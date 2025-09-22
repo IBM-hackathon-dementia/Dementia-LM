@@ -3,6 +3,241 @@ import { useNavigate } from 'react-router-dom';
 import { useRecoilValue, useRecoilState } from 'recoil';
 import { authState, sessionState } from '../recoil/atoms';
 import { ConversationMessage } from '../recoil/types';
+import { apiClient } from '../../lib/api';
+
+// HTML 리포트 생성 함수
+const generateReportHtml = (reportData: any, conversations: ConversationMessage[]) => {
+  const currentDate = new Date().toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  return `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>치매 회상 치료 세션 리포트</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #1e40af;
+            margin: 0;
+            font-size: 28px;
+        }
+        .header p {
+            color: #6b7280;
+            margin: 10px 0 0 0;
+            font-size: 16px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        .section h2 {
+            color: #1e40af;
+            margin-top: 0;
+            font-size: 20px;
+        }
+        .score-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .score-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+        }
+        .score-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        .score-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+        .conversation-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .message.user {
+            background: #eff6ff;
+            border-left: 3px solid #3b82f6;
+        }
+        .message.assistant {
+            background: #f0fdf4;
+            border-left: 3px solid #10b981;
+        }
+        .message-role {
+            font-weight: bold;
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+        .recommendations {
+            background: #fefce8;
+            border: 1px solid #facc15;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .recommendations h3 {
+            color: #92400e;
+            margin-top: 0;
+        }
+        .recommendations ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .recommendations li {
+            margin-bottom: 8px;
+            color: #451a03;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        @media print {
+            body { background: white; }
+            .container { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>치매 회상 치료 세션 리포트</h1>
+            <p>생성일: ${currentDate}</p>
+        </div>
+
+        <div class="section">
+            <h2>📊 세션 정보</h2>
+            <p><strong>총 대화 시간:</strong> ${Math.round((reportData.totalDuration || 0) / 60000)}분</p>
+            <p><strong>대화 교환 횟수:</strong> ${reportData.totalConversations || conversations.length}회</p>
+            <p><strong>긍정적 반응:</strong> ${reportData.positiveReactions || 0}회</p>
+            <p><strong>부정적 반응:</strong> ${reportData.negativeReactions || 0}회</p>
+        </div>
+
+        <div class="section">
+            <h2>🧠 인지 능력 평가</h2>
+            <div class="score-grid">
+                <div class="score-item">
+                    <div class="score-value">${reportData.orientationScore || 'N/A'}/5</div>
+                    <div class="score-label">지남력</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value">${reportData.attentionScore || 'N/A'}/5</div>
+                    <div class="score-label">주의력</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value">${reportData.memoryScore || 'N/A'}/5</div>
+                    <div class="score-label">기억력</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value">${reportData.languageScore || 'N/A'}/5</div>
+                    <div class="score-label">언어능력</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value">${reportData.comprehensionScore || 'N/A'}/5</div>
+                    <div class="score-label">이해력</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value">${reportData.participationLevel || 'N/A'}/5</div>
+                    <div class="score-label">참여도</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📋 종합 평가</h2>
+            <p><strong>기능적 수준:</strong> ${reportData.functionalLevel || '평가 불가'}</p>
+            <p><strong>정서 상태:</strong> ${reportData.emotionalState || '평가 불가'}</p>
+            <p><strong>종합 인지 상태:</strong> ${reportData.overallCognition || '평가 불가'}</p>
+            <p><strong>상세 분석:</strong> ${reportData.detailedAnalysis || '분석 정보가 없습니다.'}</p>
+        </div>
+
+        <div class="section">
+            <h2>⚠️ 관찰된 증상 및 위험 요인</h2>
+            <p><strong>행동 증상:</strong> ${(reportData.behavioralSymptoms || []).join(', ') || '관찰된 증상 없음'}</p>
+            <p><strong>위험 요인:</strong> ${(reportData.riskFactors || []).join(', ') || '특별한 위험 요인 없음'}</p>
+            <p><strong>기분 변화:</strong> ${(reportData.moodChanges || []).join(', ') || '변화 없음'}</p>
+        </div>
+
+        <div class="section">
+            <h2>💬 대화 내용</h2>
+            <p><strong>대화 요약:</strong> ${reportData.conversationSummary || '대화 요약이 없습니다.'}</p>
+            <div class="conversation-list">
+                ${conversations.map((msg, index) => `
+                    <div class="message ${msg.role}">
+                        <div class="message-role">${msg.role === 'user' ? '환자' : '이음이'}</div>
+                        <div>${msg.content}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="recommendations">
+            <h3>📝 권장사항</h3>
+            <ul>
+                ${(reportData.careRecommendations || []).map((rec: string) => `<li>${rec}</li>`).join('')}
+                ${(reportData.recommendations || []).map((rec: string) => `<li>${rec}</li>`).join('')}
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>이 리포트는 이음이 AI 회상 치료 시스템에 의해 자동 생성되었습니다.</p>
+            <p>정확한 진단을 위해서는 전문의와 상담하시기 바랍니다.</p>
+        </div>
+    </div>
+</body>
+</html>
+  `;
+};
 
 const ConversationPage: React.FC = () => {
   const navigate = useNavigate();
@@ -350,14 +585,87 @@ const ConversationPage: React.FC = () => {
     }
   };
 
-  const endSession = () => {
+  const endSession = async () => {
+    console.log('🏁 대화 세션 종료 시작');
     window.speechSynthesis.cancel();
+
+    // 리포트 생성 시도 (대화 내용이 있는 경우에만)
+    if (session.conversationHistory.length > 1 && auth.caregiver?.id) {
+      try {
+        console.log('📊 리포트 생성 시작', {
+          userId: auth.caregiver.id,
+          conversationLength: session.conversationHistory.length,
+          sessionId: session.currentConversationId
+        });
+
+        // 실제 대화 내용을 기존 리포트 생성 API에 전송
+        const sessionData = {
+          sessionStart: session.startedAt?.getTime() || Date.now() - 300000, // 5분 전으로 기본값
+          sessionEnd: Date.now(),
+          totalDuration: Date.now() - (session.startedAt?.getTime() || Date.now() - 300000),
+          totalConversations: session.conversationHistory.length
+        };
+
+        // 기존 리포트 생성 API 호출 (프록시를 통해 백엔드로)
+        const reportResponse = await fetch('/api/generate-report', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            conversations: session.conversationHistory,
+            sessionData: sessionData
+          })
+        });
+
+        if (!reportResponse.ok) {
+          throw new Error(`리포트 생성 실패: ${reportResponse.status}`);
+        }
+
+        const reportData = await reportResponse.json();
+        console.log('📊 상세 리포트 생성 완료:', reportData);
+
+        // 리포트 데이터를 로컬 스토리지에 저장 (나중에 리포트 페이지에서 접근 가능)
+        const reportId = 'report_' + Date.now();
+        const fullReportData = {
+          id: reportId,
+          userId: auth.caregiver.id,
+          conversations: session.conversationHistory,
+          analysisData: reportData,
+          generatedAt: new Date().toISOString(),
+          status: 'COMPLETED'
+        };
+
+        // 기존 리포트들과 함께 저장
+        const existingReports = JSON.parse(localStorage.getItem('generatedReports') || '[]');
+        existingReports.push(fullReportData);
+        localStorage.setItem('generatedReports', JSON.stringify(existingReports));
+
+        // 간단한 리포트도 API에 저장
+        await apiClient.generateReport({
+          userId: auth.caregiver.id,
+          imageId: 'session_' + Date.now()
+        });
+
+        console.log('📊 리포트가 성공적으로 저장되었습니다:', reportId);
+
+      } catch (error) {
+        console.error('❌ 리포트 생성 실패:', error);
+        // 리포트 생성 실패해도 세션은 종료
+        console.log('⚠️ 리포트 생성에 실패했지만 세션을 종료합니다');
+      }
+    } else {
+      console.log('📊 리포트 생성 건너뜀: 대화 내용이 부족하거나 사용자 ID가 없음');
+    }
+
     setSession(prev => ({
       ...prev,
       isActive: false,
       isSpeaking: false,
       isListening: false,
     }));
+
+    console.log('🏁 대화 세션 종료 완료');
     navigate('/');
   };
 

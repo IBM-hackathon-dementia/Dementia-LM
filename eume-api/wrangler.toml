@@ -7,5 +7,11 @@ compatibility_date = "2023-01-01"
 
 # KV 저장소 설정 (백업용 - 점진적 마이그레이션시)
 kv_namespaces = [
-  { binding = "CONVERSATION_HISTORY", id = "2e4acbcfc1504315afe35ed2bb12a6df", preview_id = "16845856a2cb452c8d08da61294ef5c6" }
+  { binding = "CONVERSATION_HISTORY", id = "b314b5fad40d4011a90e8baa3a9ceb9d" }
 ]
+
+# D1 데이터베이스 설정
+[[d1_databases]]
+binding = "DB"
+database_name = "eume-database"
+database_id = "51dd0464-306f-471d-8a65-fc8f58e679fb"

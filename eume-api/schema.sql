@@ -1,4 +1,15 @@
--- 사용자 테이블
+-- 인증 사용자 테이블 (회원가입/로그인용)
+CREATE TABLE IF NOT EXISTS auth_users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'caregiver',
+    password_hash TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 사용자 테이블 (세션용)
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT UNIQUE NOT NULL,
@@ -54,10 +65,41 @@ CREATE TABLE IF NOT EXISTS trauma_info (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
+-- 환자 테이블
+CREATE TABLE IF NOT EXISTS patients (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    age INTEGER NOT NULL,
+    gender TEXT NOT NULL CHECK (gender IN ('MALE', 'FEMALE')),
+    dementia_level TEXT NOT NULL,
+    trigger_elements TEXT, -- 쉼표로 구분된 문자열
+    relationship TEXT NOT NULL,
+    memo TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 사용자 이미지 테이블
+CREATE TABLE IF NOT EXISTS user_images (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    image_url TEXT NOT NULL,
+    description TEXT NOT NULL,
+    scheduled_date DATETIME NOT NULL,
+    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    usage_count INTEGER DEFAULT 0,
+    last_used_at DATETIME,
+    FOREIGN KEY (user_id) REFERENCES auth_users(id)
+);
+
 -- 인덱스 생성
+CREATE INDEX IF NOT EXISTS idx_auth_users_username ON auth_users(username);
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_user_id ON conversation_messages(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_timestamp ON conversation_messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_photo_sessions_user_id ON photo_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_photo_sessions_active ON photo_sessions(user_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_effective_topics_user_id ON effective_topics(user_id);
 CREATE INDEX IF NOT EXISTS idx_trauma_info_user_id ON trauma_info(user_id);
+CREATE INDEX IF NOT EXISTS idx_patients_id ON patients(id);
+CREATE INDEX IF NOT EXISTS idx_user_images_user_id ON user_images(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_images_uploaded_at ON user_images(uploaded_at);
