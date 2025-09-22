@@ -260,7 +260,7 @@ class ApiClient {
     // Add authorization header if needed
     const headers: Record<string, string> = {
       'Content-Type': 'application/json; charset=utf-8',
-      ...options.headers,
+      ...(options.headers as Record<string, string> || {}),
     };
 
     if (includeAuth && !endpoint.includes('/auth/')) {
@@ -444,14 +444,14 @@ class ApiClient {
     });
   }
 
-  async updatePatient(userId: string, patientId: string, data: PatientUpdateRequest): Promise<PatientUpdateResponse> {
+  async updatePatient(userId: string, _patientId: string, data: PatientUpdateRequest): Promise<PatientUpdateResponse> {
     return this.request<PatientUpdateResponse>(`/api/users/${userId}/info`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
-  async deletePatient(userId: string, patientId: string): Promise<{ success: boolean; message: string }> {
+  async deletePatient(userId: string, _patientId: string): Promise<{ success: boolean; message: string }> {
     return this.request<{ success: boolean; message: string }>(`/api/users/${userId}/info`, {
       method: 'DELETE',
     });

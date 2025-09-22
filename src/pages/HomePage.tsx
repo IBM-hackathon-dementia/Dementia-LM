@@ -1211,7 +1211,7 @@ export default function HomePage() {
                         <div className="w-full max-w-xs mb-4">
                             <div className="w-full bg-gray-200 rounded-full h-2.5">
                                 <div
-                                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                                    className="bg-orange-400 h-2.5 rounded-full transition-all duration-300 ease-out"
                                     style={{ width: `${uploadProgress}%` }}
                                 ></div>
                             </div>
@@ -1224,9 +1224,9 @@ export default function HomePage() {
                     )}
                     {((isAnalyzingPhoto && uploadProgress === 0) || status === 'thinking' || status === 'speaking') && (
                         <div className="flex space-x-1">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
-                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            <div className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"></div>
+                            <div className="w-3 h-3 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-3 h-3 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                         </div>
                     )}
                 </div>
@@ -1265,7 +1265,7 @@ export default function HomePage() {
                             />
                             <button
                                 disabled={status !== 'idle'}
-                                className="w-16 h-16 rounded-full shadow-xl transition-all duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center bg-blue-500 hover:bg-blue-600"
+                                className="w-16 h-16 rounded-full shadow-xl transition-all duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center bg-orange-400 hover:bg-orange-500"
                             >
                                 <svg
                                     className="w-8 h-8 text-white"

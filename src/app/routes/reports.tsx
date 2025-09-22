@@ -211,7 +211,7 @@ const generateReportHtml = (reportData: any, conversations: any[]) => {
             <h2>💬 대화 내용</h2>
             <p><strong>대화 요약:</strong> ${reportData.conversationSummary || '대화 요약이 없습니다.'}</p>
             <div class="conversation-list">
-                ${conversations.map((msg, index) => `
+                ${conversations.map((msg) => `
                     <div class="message ${msg.role}">
                         <div class="message-role">${msg.role === 'user' ? '환자' : '이음이'}</div>
                         <div>${msg.content}</div>
@@ -239,7 +239,7 @@ const generateReportHtml = (reportData: any, conversations: any[]) => {
 };
 
 // HTML을 PDF로 변환하여 다운로드하는 함수
-const convertHtmlToPdfAndDownload = (htmlContent: string, reportId: string) => {
+const convertHtmlToPdfAndDownload = (htmlContent: string, _reportId: string) => {
   try {
     // 간단한 방법: window.print()를 사용하여 PDF 생성
     const printWindow = window.open('', '_blank');
@@ -389,11 +389,11 @@ const ReportsPage: React.FC = () => {
       console.log('📄 PDF 생성 응답:', response);
 
       // Handle PDF download
-      if (response.downloadUrl || response.htmlContent) {
+      if (response.downloadUrl) {
         // HTML 콘텐츠를 클라이언트에서 PDF로 변환하여 다운로드
-        const htmlContent = response.htmlContent || (response.downloadUrl.startsWith('data:text/html')
+        const htmlContent = response.downloadUrl.startsWith('data:text/html')
           ? decodeURIComponent(escape(atob(response.downloadUrl.split(',')[1])))
-          : null);
+          : null;
 
         if (htmlContent) {
           // HTML을 PDF로 변환하여 다운로드
@@ -450,19 +450,46 @@ const ReportsPage: React.FC = () => {
   }
 
   return (
-    <div className="page-container">
-      <div className="content-wrapper">
-        <div className="card-elevated">
-          <div className="flex justify-between items-center" style={{ marginBottom: 'var(--space-6)' }}>
-            <h1 className="text-3xl">활동 보고서</h1>
-            <button
-              onClick={loadReports}
-              disabled={loading}
-              className="btn btn-secondary"
-            >
-              {loading ? '새로고침 중...' : '새로고침'}
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <img
+                src="/img/이음3.png"
+                alt="이음이 캐릭터"
+                className="w-16 h-16 object-contain"
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-green-600" style={{ color: '#406459ff' }}>
+                  활동 보고서
+                </h1>
+                <p className="text-gray-600">대화 세션 리포트를 확인해보세요</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={loadReports}
+                disabled={loading}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                {loading ? '새로고침 중...' : '새로고침'}
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                홈으로
+              </button>
+            </div>
           </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="bg-white rounded-2xl shadow-lg p-8">
 
           {error && (
             <div className="bg-red-50 text-red-700 p-4 rounded-lg" style={{ marginBottom: 'var(--space-4)' }}>
@@ -561,7 +588,7 @@ const ReportsPage: React.FC = () => {
             </button>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

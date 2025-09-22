@@ -88,18 +88,38 @@ const LoginPage: React.FC = () => {
             maxWidth: '500px',
             textAlign: 'center'
           }}>
-            <h1 className="text-3xl" style={{
-              marginBottom: 'var(--space-4)',
-              color: 'var(--color-primary)'
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 'var(--space-6)'
             }}>
-              이음이 - AI 회상 치료
-            </h1>
+              <img
+                src="/img/이음3.png"
+                alt="이음이 캐릭터"
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  objectFit: 'contain',
+                  marginRight: 'var(--space-4)'
+                }}
+              />
+              <div style={{ textAlign: 'left' }}>
+                <h2 className="text-3xl" style={{
+                  marginBottom: 'var(--space-2)',
+                  color: 'var(--color-primary)'
+                }}>
+                  이음
+                </h2>
+                <h2 className="text-xl" style={{
+                  margin: 0,
+                  color: '#464646ff'
+                }}>
+                  기억을 잇는 AI
+                </h2>
+              </div>
+            </div>
 
-            <p className="text-lg text-muted" style={{
-              marginBottom: 'var(--space-8)'
-            }}>
-              로그인하여 서비스를 이용하세요
-            </p>
 
             {error && (
               <div style={{
@@ -169,8 +189,8 @@ const LoginPage: React.FC = () => {
 
               <button
                 type="submit"
-                className="btn btn-primary btn-xl btn-full"
-                style={{ marginTop: 'var(--space-6)' }}
+                className="btn btn-primary btn-lg btn-full"
+                style={{ marginTop: 'var(--space-10)' }}
                 disabled={isLoading}
               >
                 {isLoading ? '로그인 중...' : '로그인'}

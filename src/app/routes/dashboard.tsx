@@ -174,6 +174,11 @@ const DashboardPage: React.FC = () => {
                             .split(',')
                             .map((t) => t.trim())
                             .filter((t) => t),
+                        voiceSettings: editingPatient.preferences?.voiceSettings || {
+                            speed: 0.8,
+                            pitch: 1,
+                            volume: 0.8
+                        }
                     },
                 };
 
@@ -208,172 +213,122 @@ const DashboardPage: React.FC = () => {
     }
 
     return (
-        <div className="page-container">
-            <div className="content-wrapper">
-                <header
-                    className="flex-between flex-wrap"
-                    style={{
-                        marginBottom:
-                            'clamp(var(--space-6), 3vw, var(--space-10))',
-                        gap: 'var(--space-4)',
-                    }}
-                >
-                    <div>
-                        <h1
-                            className="text-3xl"
-                            style={{ marginBottom: 'var(--space-2)' }}
+        <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
+            {/* Header */}
+            <header className="bg-white shadow-sm border-b">
+                <div className="max-w-7xl mx-auto px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                            <img
+                                src="/img/이음3.png"
+                                alt="이음이 캐릭터"
+                                className="w-16 h-16 object-contain"
+                            />
+                            <div>
+                                <h1 className="text-2xl font-bold text-green-600" style={{ color: '#406459ff' }}>
+                                    이음이 대시보드
+                                </h1>
+                                <p className="text-gray-600">
+                                    안녕하세요, {auth.caregiver.name}님
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleLogout}
+                            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                         >
-                            안녕하세요, {auth.caregiver.name}님
-                        </h1>
-                        <p className="text-xl text-muted">
-                            관리할 환자를 선택하거나 새 환자를 추가해주세요
-                        </p>
+                            로그아웃
+                        </button>
                     </div>
-                    <button
-                        onClick={handleLogout}
-                        className="btn btn-secondary btn-lg"
-                    >
-                        로그아웃
-                    </button>
-                </header>
+                </div>
+            </header>
 
-                <main className="stack-lg">
-                    {patients.length === 0 ? (
-                        <section
-                            className="card-elevated text-center"
-                            style={{
-                                padding:
-                                    'clamp(var(--space-6), 4vw, var(--space-10))',
-                            }}
-                        >
-                            <h2
-                                className="text-2xl"
-                                style={{ marginBottom: 'var(--space-6)' }}
-                            >
+            {/* Main Content */}
+            <main className="max-w-7xl mx-auto px-6 py-8">
+
+                {patients.length === 0 ? (
+                    <div className="text-center py-16">
+                        <div className="bg-white rounded-2xl shadow-lg p-12 max-w-2xl mx-auto">
+                            <img
+                                src="/img/이음4.png"
+                                alt="이음이 환영"
+                                className="w-24 h-24 object-contain mx-auto mb-6"
+                            />
+                            <h2 className="text-3xl font-bold text-gray-800 mb-4">
                                 첫 번째 환자를 등록해주세요
                             </h2>
-                            <p
-                                className="text-lg text-muted"
-                                style={{ marginBottom: 'var(--space-8)' }}
-                            >
-                                환자 정보를 입력하여 맞춤형 치료를 시작해보세요.
-                                <br />
+                            <p className="text-lg text-gray-600 mb-8">
+                                환자 정보를 입력하여 맞춤형 치료를 시작해보세요.<br />
                                 개인화된 치료 경험을 제공해드립니다.
                             </p>
                             <button
-                                className="btn btn-primary btn-xl"
+                                className="bg-orange-400 text-white py-4 px-8 rounded-xl text-lg font-semibold hover:bg-orange-500 transition-colors shadow-lg"
                                 onClick={() => setShowAddPatient(true)}
                             >
                                 환자 추가하기
                             </button>
-                        </section>
-                    ) : (
-                        <>
-                            <section
-                                className="card-elevated"
-                                style={{
-                                    padding:
-                                        'clamp(var(--space-6), 3vw, var(--space-8))',
-                                }}
-                            >
-                                <div
-                                    className="flex-between flex-wrap"
-                                    style={{ marginBottom: 'var(--space-8)' }}
-                                >
-                                    <h2 className="text-2xl">
-                                        등록된 환자 ({patients.length}명)
-                                    </h2>
-                                    <button
-                                        className="btn btn-secondary btn-lg"
-                                        onClick={() => setShowAddPatient(true)}
-                                    >
-                                        + 환자 추가
-                                    </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div>
+                        <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+                            <div className="flex items-center justify-between mb-8">
+                                <div className="flex items-center space-x-3">
+                                    <img
+                                        src="/img/이음3.png"
+                                        alt="이음이 환자관리"
+                                        className="w-12 h-12 object-contain"
+                                    />
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-800">
+                                            등록된 환자 ({patients.length}명)
+                                        </h2>
+                                        <p className="text-gray-600">환자를 선택하여 대화를 시작하세요</p>
+                                    </div>
                                 </div>
-
-                                <div
-                                    className="grid grid-auto"
-                                    style={{ gap: 'var(--space-6)' }}
+                                <button
+                                    className="bg-orange-400 text-white py-3 px-6 rounded-lg font-semibold hover:bg-orange-500 transition-colors"
+                                    onClick={() => setShowAddPatient(true)}
                                 >
-                                    {patients.map((patient) => (
-                                        <div
-                                            key={patient.id}
-                                            className="card"
-                                            style={{
-                                                cursor: 'pointer',
-                                                border: '3px solid transparent',
-                                                transition: 'all 0.3s ease',
-                                                position: 'relative',
-                                            }}
-                                            onClick={() =>
-                                                handleSelectPatient(patient)
-                                            }
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.borderColor =
-                                                    'var(--color-primary)';
-                                                e.currentTarget.style.transform =
-                                                    'translateY(-4px)';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.borderColor =
-                                                    'transparent';
-                                                e.currentTarget.style.transform =
-                                                    'translateY(0)';
-                                            }}
-                                        >
-                                            <div className="text-center">
-                                                <h3
-                                                    className="text-xl"
-                                                    style={{
-                                                        marginBottom:
-                                                            'var(--space-4)',
-                                                        color: 'var(--color-text-primary)',
-                                                    }}
-                                                >
-                                                    {patient.name}
-                                                </h3>
-                                                {patient.age && (
-                                                    <p
-                                                        className="text-lg text-muted"
-                                                        style={{
-                                                            marginBottom:
-                                                                'var(--space-6)',
+                                    + 환자 추가
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {patients.map((patient) => (
+                                    <div
+                                        key={patient.id}
+                                        className="bg-gray-50 rounded-xl p-6 border-2 border-transparent hover:border-green-300 hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
+                                        onClick={() => handleSelectPatient(patient)}
+                                    >
+                                        <div className="text-center">
+                                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <span className="text-2xl">👤</span>
+                                            </div>
+                                            <h3 className="text-xl font-bold text-gray-800 mb-2">
+                                                {patient.name}
+                                            </h3>
+                                            {patient.age && (
+                                                <p className="text-gray-600 mb-4">
+                                                    {patient.age}세
+                                                </p>
+                                            )}
+                                            <div className="space-y-3">
+                                                <div className="bg-orange-400 text-white py-3 px-4 rounded-lg font-semibold">
+                                                    이음이와 대화하기
+                                                </div>
+                                                <div className="flex space-x-2">
+                                                    <button
+                                                        className="flex-1 py-2 px-3 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleEditPatient(patient);
                                                         }}
                                                     >
-                                                        {patient.age}세
-                                                    </p>
-                                                )}
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        gap: 'var(--space-2)',
-                                                    }}
-                                                >
-                                                    <div className="btn btn-primary btn-lg btn-full">
-                                                        이음이와 대화하기
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            display: 'flex',
-                                                            gap: 'var(--space-2)',
-                                                        }}
-                                                    >
-                                                        <button
-                                                            className="btn btn-secondary btn-sm"
-                                                            style={{ flex: 1 }}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleEditPatient(
-                                                                    patient
-                                                                );
-                                                            }}
-                                                        >
-                                                            수정
-                                                        </button>
-                                                        <button
-                                                            className="btn btn-danger btn-sm"
-                                                            style={{ flex: 1 }}
+                                                        수정
+                                                    </button>
+                                                    <button
+                                                        className="flex-1 py-2 px-3 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
                                                             onClick={async (e) => {
                                                                 e.stopPropagation();
                                                                 if (
@@ -418,8 +373,8 @@ const DashboardPage: React.FC = () => {
                                         </div>
                                     ))}
                                 </div>
-                            </section>
-                        </>
+                            </div>
+                        </div>
                     )}
 
                     {/* Edit Patient Modal */}
@@ -1426,8 +1381,7 @@ const DashboardPage: React.FC = () => {
                             </form>
                         </div>
                     )}
-                </main>
-            </div>
+            </main>
         </div>
     );
 };

@@ -30,113 +30,186 @@ const HomePage: React.FC = () => {
     }, [auth.isAuthenticated, auth.selectedPatient, navigate]);
 
     return (
-        <div className="page-container">
-            <div className="content-wrapper">
-                <div
-                    className="flex-between"
-                    style={{ marginBottom: 'var(--space-8)' }}
-                >
-                    <div>
-                        <h1
-                            className="text-4xl"
-                            style={{
-                                color: 'var(--color-primary)',
-                                marginBottom: 'var(--space-2)',
-                            }}
-                        >
-                            AI 회상 치료
-                        </h1>
-                        <p className="text-xl text-muted">
-                            {auth.selectedPatient?.name}님, 오늘도 좋은 추억을
-                            함께 나눠요
-                        </p>
-                    </div>
-                    <button
-                        onClick={handleLogout}
-                        className="btn btn-outline btn-lg"
-                    >
-                        로그아웃
-                    </button>
-                </div>
-
-                <main className="stack-md">
-                    {/* 메인 대화 버튼 */}
-                    <section className="card-elevated text-center">
+        <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
+            {/* Header */}
+            <header className="bg-white shadow-sm border-b">
+                <div className="max-w-7xl mx-auto px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                            <img
+                                src="/img/이음3.png"
+                                alt="이음이 캐릭터"
+                                className="w-16 h-16 object-contain"
+                            />
+                            <div>
+                                <h1 className="text-2xl font-bold text-green-600" style={{ color: '#406459ff' }}>
+                                    이음이와 기억 잇기
+                                </h1>
+                                <p className="text-gray-600">
+                                    {auth.selectedPatient?.name}님과 함께해요.
+                                </p>
+                            </div>
+                        </div>
                         <button
-                            className="btn btn-primary btn-xl btn-full"
-                            onClick={() => navigate('/conversation')}
-                            style={{ marginBottom: 'var(--space-4)' }}
+                            onClick={handleLogout}
+                            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                         >
-                            🎤 AI와 대화하기
+                            로그아웃
                         </button>
-                        <p className="text-base text-muted">
-                            AI와 함께 편안한 대화를 나누며 소중한 추억들을
-                            되새겨보세요
-                        </p>
-                    </section>
+                    </div>
+                </div>
+            </header>
 
-                    {/* 빠른 메뉴 */}
-                    <section className="card">
-                        <h3
-                            className="text-lg"
-                            style={{
-                                marginBottom: 'var(--space-4)',
-                                textAlign: 'center',
-                            }}
-                        >
-                            빠른 메뉴
-                        </h3>
-                        <div
-                            className="grid grid-2"
-                            style={{ gap: 'var(--space-3)' }}
-                        >
+            {/* Main Content */}
+            <main className="max-w-6xl mx-auto px-6 py-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* 메인 대화 섹션 */}
+                    <div className="lg:col-span-2">
+                        <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+                            <div className="flex items-center justify-center mb-6">
+                                <img
+                                    src="/img/이음1.png"
+                                    alt="이음이 대화"
+                                    className="w-24 h-24 object-contain mr-4"
+                                />
+                                <div className="text-left">
+                                    <h3 className="text-2xl font-bold text-gray-800 mb-4" style={{ color: '#fba45f' }}>
+                                        함께 대화해요!
+                                    </h3>
+                                    <p className="text-gray-600">
+                                        편안한 대화를 통해 소중한 추억을 되새겨보세요
+                                    </p>
+                                </div>
+                            </div>
                             <button
-                                className="btn btn-secondary btn-md btn-full"
-                                onClick={() => navigate('/upload')}
-                                style={{
-                                    height: '60px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '2px',
-                                }}
+                                className="w-full bg-orange-400 text-white py-2 px-6 rounded-xl text-lg font-semibold hover:bg-orange-500 transition-colors shadow-lg"
+                                onClick={() => navigate('/conversation')}
                             >
-                                📷{' '}
-                                <span style={{ fontSize: '14px' }}>
-                                    사진 추가
-                                </span>
-                            </button>
-                            <button
-                                className="btn btn-secondary btn-md btn-full"
-                                onClick={() => navigate('/reports')}
-                                style={{
-                                    height: '60px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '2px',
-                                }}
-                            >
-                                📊{' '}
-                                <span style={{ fontSize: '14px' }}>
-                                    활동 보기
-                                </span>
+                                🎤 대화 시작하기
                             </button>
                         </div>
-                    </section>
 
-                    {/* 최근 활동 - 컴팩트 */}
-                    <section className="card text-center">
-                        <h3
-                            className="text-base text-muted"
-                            style={{ marginBottom: 'var(--space-2)' }}
-                        >
-                            최근 활동
-                        </h3>
-                        <p className="text-sm text-muted">
-                            첫 번째 회상을 시작해보세요!
-                        </p>
-                    </section>
-                </main>
-            </div>
+                        {/* 최근 활동 */}
+                        <div className="bg-white rounded-2xl shadow-lg p-6 mt-6">
+                            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                                최근 활동
+                            </h3>
+                            {(() => {
+                                // 로컬 스토리지에서 최근 리포트들 가져오기
+                                const savedReports = JSON.parse(localStorage.getItem('generatedReports') || '[]');
+                                const recentReports = savedReports.slice(-3).reverse(); // 최신 3개만
+
+                                if (recentReports.length === 0) {
+                                    return (
+                                        <div className="text-center py-8">
+                                            <img
+                                                src="/img/이음4.png"
+                                                alt="이음이 활동"
+                                                className="w-16 h-16 object-contain mx-auto mb-4 opacity-60"
+                                            />
+                                            <p className="text-gray-500">
+                                                첫 번째 회상을 시작해보세요!
+                                            </p>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="space-y-3">
+                                        {recentReports.map((report: any, index: number) => (
+                                            <div
+                                                key={report.id}
+                                                className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors cursor-pointer"
+                                                onClick={() => navigate('/reports')}
+                                            >
+                                                <div className="flex-shrink-0">
+                                                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                                                        <span className="text-orange-600 text-lg">💬</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                                        대화 세션 리포트
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {new Date(report.generatedAt).toLocaleDateString('ko-KR', {
+                                                            month: 'short',
+                                                            day: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </p>
+                                                </div>
+                                                <div className="flex-shrink-0">
+                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                                                        완료
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <div className="text-center pt-2">
+                                            <button
+                                                onClick={() => navigate('/reports')}
+                                                className="text-sm text-green-600 hover:text-green-800 underline"
+                                            >
+                                                모든 활동 보기
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
+
+                    {/* 사이드바 */}
+                    <div className="space-y-6">
+                        {/* 빠른 메뉴 */}
+                        <div className="bg-white rounded-2xl shadow-lg p-6">
+                            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                                빠른 메뉴
+                            </h3>
+                            <div className="space-y-3">
+                                <button
+                                    className="w-full flex items-center justify-center space-x-3 bg-green-50 text-green-700 py-4 px-4 rounded-lg hover:bg-green-100 transition-colors"
+                                    onClick={() => navigate('/upload')}
+                                >
+                                    <span className="text-2xl">📷</span>
+                                    <span className="font-medium">사진 추가</span>
+                                </button>
+                                <button
+                                    className="w-full flex items-center justify-center space-x-3 bg-green-50 text-green-700 py-4 px-4 rounded-lg hover:bg-green-100 transition-colors"
+                                    onClick={() => navigate('/reports')}
+                                >
+                                    <span className="text-2xl">📊</span>
+                                    <span className="font-medium">활동 보기</span>
+                                </button>
+                                <button
+                                    className="w-full flex items-center justify-center space-x-3 bg-purple-50 text-purple-700 py-4 px-4 rounded-lg hover:bg-purple-100 transition-colors"
+                                    onClick={() => navigate('/dashboard')}
+                                >
+                                    <span className="text-2xl">🏠</span>
+                                    <span className="font-medium">환자목록</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 도움말 섹션 */}
+                        <div className="bg-green-50 rounded-2xl p-6">
+                            <div className="flex items-start space-x-3">
+                                <div>
+                                    <h4 className="font-semibold text-green-800 mb-2">
+                                        이음이 팁
+                                    </h4>
+                                    <p className="text-sm text-green-700">
+                                        대화할 때는 편안한 마음가짐으로 천천히 말씀해 주세요.<br />
+                                        언제든지 중간에 멈추시거나 다시 시작할 수 있어요.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
     );
 };

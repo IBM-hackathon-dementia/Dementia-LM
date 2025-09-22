@@ -339,13 +339,13 @@ export default function Home() {
                         status === 'thinking' ||
                         status === 'speaking') && (
                         <div className="flex space-x-1">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                            <div className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"></div>
                             <div
-                                className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
+                                className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"
                                 style={{ animationDelay: '0.1s' }}
                             ></div>
                             <div
-                                className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
+                                className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"
                                 style={{ animationDelay: '0.2s' }}
                             ></div>
                         </div>
@@ -364,7 +364,7 @@ export default function Home() {
                             />
                             <button
                                 disabled={status !== 'idle'}
-                                className="w-16 h-16 rounded-full shadow-xl transition-all duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center bg-blue-500 hover:bg-blue-600"
+                                className="w-16 h-16 rounded-full shadow-xl transition-all duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center bg-orange-400 hover:bg-orange-500"
                             >
                                 <svg
                                     className="w-8 h-8 text-white"

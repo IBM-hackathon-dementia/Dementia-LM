@@ -1,14 +1,18 @@
 /* src/styles/global.css */
 
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
 /* ===== Professional Dementia Care Design System ===== */
 :root {
-  /* Base Colors - Medical/Healthcare Theme */
-  --color-bg: #F8FAFC;           /* 깨끗한 의료용 백색 */
+  /* Base Colors - Natural Green Theme */
+  --color-bg: #F0F9F6;           /* 자연스러운 연한 민트 배경 */
   --color-surface: #FFFFFF;      /* 순백색 카드/패널 */
   --color-surface-elevated: #FFFFFF;
-  --color-surface-secondary: #F1F5F9;
-  --color-border: #E2E8F0;       /* 부드러운 경계선 */
-  --color-divider: #F1F5F9;      /* 구분선 */
+  --color-surface-secondary: #E8F5F0;
+  --color-border: #C5E4D8;       /* 자연스러운 연한 그린 보더 */
+  --color-divider: #E8F5F0;      /* 연한 그린 구분선 */
 
   /* Typography Colors - High Contrast for Vision Impairment */
   --color-text-primary: #0F172A;    /* 최대 대비 주 텍스트 */
@@ -16,12 +20,12 @@
   --color-text-muted: #64748B;      /* 부가 정보 */
   --color-text-inverse: #FFFFFF;    /* 반전 텍스트 */
 
-  /* Medical Theme Colors */
-  --color-primary: #0EA5E9;         /* 신뢰감 있는 의료용 블루 */
-  --color-primary-hover: #0284C7;
-  --color-primary-light: #E0F2FE;
-  --color-primary-dark: #0C4A6E;
-  --color-primary-rgb: 14, 165, 233;
+  /* Nature Green Theme Colors */
+  --color-primary: #7bbfa9;         /* 메인 그린 #7bbfa9 */
+  --color-primary-hover: #5aa88a;   /* 어두운 그린 hover */
+  --color-primary-light: #e8f5f0;   /* 연한 그린 배경 */
+  --color-primary-dark: #3e8067;    /* 진한 그린 */
+  --color-primary-rgb: 123, 191, 169;
 
   /* Status Colors - Clear Medical Indicators */
   --color-success: #059669;         /* 치료 성공/긍정 */
@@ -34,8 +38,11 @@
   --color-danger-light: #FEE2E2;
   --color-info: #7C3AED;            /* 정보/설정 */
   --color-info-light: #EDE9FE;
-  --color-assistant: #F97316;      /* AI 이음이 메시지 */
+  --color-assistant: #fba45f;      /* AI 이음이 메시지 */
   --color-assistant-light: #FED7AA;
+  --color-action: #fba45f;         /* 액션 버튼 (대화 시작, 마이크 등) */
+  --color-action-hover: #ea8a3a;   /* 액션 버튼 hover */
+  --color-action-light: #fef3e2;   /* 액션 버튼 배경 */
 
   /* Shadows - Subtle Medical Equipment Feel */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
