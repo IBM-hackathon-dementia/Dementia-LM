@@ -238,6 +238,54 @@ const generateReportHtml = (reportData: any, conversations: any[]) => {
   `;
 };
 
+// HTML을 PDF로 변환하여 다운로드하는 함수
+const convertHtmlToPdfAndDownload = (htmlContent: string, reportId: string) => {
+  try {
+    // 간단한 방법: window.print()를 사용하여 PDF 생성
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('팝업이 차단되었습니다. 팝업을 허용하고 다시 시도해주세요.');
+      return;
+    }
+
+    // 인쇄용 스타일을 추가한 HTML 작성
+    const printableHtml = htmlContent.replace(
+      '</head>',
+      `<style>
+        @media print {
+          body { margin: 0; padding: 20px; }
+          .container { box-shadow: none; margin: 0; }
+          .no-print { display: none !important; }
+        }
+        @page {
+          size: A4;
+          margin: 20mm;
+        }
+      </style>
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+            setTimeout(function() {
+              window.close();
+            }, 100);
+          }, 500);
+        };
+      </script>
+      </head>`
+    );
+
+    // 새 창에 HTML 작성
+    printWindow.document.write(printableHtml);
+    printWindow.document.close();
+
+    console.log('📄 PDF 인쇄 다이얼로그 열림');
+  } catch (error) {
+    console.error('❌ PDF 생성 실패:', error);
+    alert('PDF 생성에 실패했습니다.');
+  }
+};
+
 const ReportsPage: React.FC = () => {
   const navigate = useNavigate();
   const auth = useRecoilValue(authState);
@@ -340,9 +388,28 @@ const ReportsPage: React.FC = () => {
       });
       console.log('📄 PDF 생성 응답:', response);
 
-      // Open PDF download URL in new tab
-      if (response.downloadUrl) {
-        window.open(response.downloadUrl, '_blank');
+      // Handle PDF download
+      if (response.downloadUrl || response.htmlContent) {
+        // HTML 콘텐츠를 클라이언트에서 PDF로 변환하여 다운로드
+        const htmlContent = response.htmlContent || (response.downloadUrl.startsWith('data:text/html')
+          ? decodeURIComponent(escape(atob(response.downloadUrl.split(',')[1])))
+          : null);
+
+        if (htmlContent) {
+          // HTML을 PDF로 변환하여 다운로드
+          convertHtmlToPdfAndDownload(htmlContent, reportId);
+        } else if (response.downloadUrl.startsWith('data:application/pdf')) {
+          // PDF Data URL인 경우 직접 다운로드
+          const link = document.createElement('a');
+          link.href = response.downloadUrl;
+          link.download = `치매케어_리포트_${reportId}_${new Date().toLocaleDateString('ko-KR').replace(/\./g, '')}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          // 일반 URL인 경우 새 탭에서 열기
+          window.open(response.downloadUrl, '_blank');
+        }
       }
     } catch (err) {
       console.error('❌ PDF 생성 오류:', err);
