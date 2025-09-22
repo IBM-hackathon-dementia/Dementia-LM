@@ -374,22 +374,39 @@ const DashboardPage: React.FC = () => {
                                                         <button
                                                             className="btn btn-danger btn-sm"
                                                             style={{ flex: 1 }}
-                                                            onClick={(e) => {
+                                                            onClick={async (e) => {
                                                                 e.stopPropagation();
                                                                 if (
                                                                     confirm(
                                                                         '정말로 이 환자를 삭제하시겠습니까?'
                                                                     )
                                                                 ) {
-                                                                    setPatients(
-                                                                        patients.filter(
-                                                                            (
-                                                                                p
-                                                                            ) =>
-                                                                                p.id !==
+                                                                    console.log('🗑️ 환자 삭제 시작:', {
+                                                                        patientId: patient.id,
+                                                                        patientName: patient.name,
+                                                                        caregiverId: auth.caregiver?.id
+                                                                    });
+
+                                                                    try {
+                                                                        if (auth.caregiver) {
+                                                                            const response = await apiClient.deletePatient(
+                                                                                auth.caregiver.id,
                                                                                 patient.id
-                                                                        )
-                                                                    );
+                                                                            );
+                                                                            console.log('✅ 환자 삭제 API 성공:', response);
+
+                                                                            // 로컬 상태에서도 제거
+                                                                            setPatients(
+                                                                                patients.filter(
+                                                                                    (p) => p.id !== patient.id
+                                                                                )
+                                                                            );
+                                                                            console.log('✅ 로컬 상태에서 환자 제거 완료');
+                                                                        }
+                                                                    } catch (error) {
+                                                                        console.error('❌ 환자 삭제 실패:', error);
+                                                                        alert('환자 삭제 중 오류가 발생했습니다.');
+                                                                    }
                                                                 }
                                                             }}
                                                         >

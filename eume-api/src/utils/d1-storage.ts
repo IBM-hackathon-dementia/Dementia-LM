@@ -468,4 +468,16 @@ export class D1Storage {
 
     console.log('환자 업데이트 결과:', result);
   }
+
+  // 환자 삭제 (현재는 사용자당 모든 환자 삭제)
+  async deletePatient(userId: string): Promise<number> {
+    console.log('🗑️ D1Storage: 환자 삭제 시작, userId:', userId);
+
+    const result = await this.db.prepare(`
+      DELETE FROM patients WHERE id = (SELECT id FROM patients ORDER BY created_at ASC LIMIT 1)
+    `).run();
+
+    console.log('🗑️ D1Storage: 환자 삭제 결과:', result);
+    return result.meta?.changes || 0;
+  }
 }

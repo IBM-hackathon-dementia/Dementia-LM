@@ -261,6 +261,63 @@ async function handlePatientUpdate(request: Request, env: Env, corsHeaders: Reco
 	}
 }
 
+async function handlePatientDelete(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
+	try {
+		console.log('🗑️ 환자 삭제 요청 수신:', {
+			method: request.method,
+			url: request.url,
+			headers: Object.fromEntries(request.headers.entries()),
+		});
+
+		// Extract userId from URL path
+		const url = new URL(request.url);
+		const pathParts = url.pathname.split('/');
+		const userId = pathParts[3]; // /api/users/{userId}/info
+
+		if (!userId) {
+			console.error('❌ 사용자 ID가 없음');
+			return new Response(JSON.stringify({ error: '사용자 ID가 필요합니다.' }), {
+				status: 400,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		console.log('🔍 삭제할 사용자 ID:', userId);
+
+		const d1Storage = new D1Storage(env.DB);
+
+		console.log('💾 환자 삭제 시작');
+		const result = await d1Storage.deletePatient(userId);
+		console.log('✅ 환자 삭제 완료, 삭제된 행 수:', result);
+
+		const responseData = {
+			success: true,
+			message: '환자 정보가 성공적으로 삭제되었습니다.',
+			deletedCount: result
+		};
+
+		console.log('📤 환자 삭제 성공 응답:', responseData);
+
+		return new Response(JSON.stringify(responseData), {
+			status: 200,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	} catch (error) {
+		console.error('❌ 환자 삭제 처리 중 오류:', error);
+		const errorMessage = error instanceof Error ? error.message : '환자 삭제 중 오류가 발생했습니다.';
+		const errorResponse = JSON.stringify({
+			success: false,
+			error: errorMessage
+		});
+		console.log('📤 삭제 에러 응답:', errorResponse);
+
+		return new Response(errorResponse, {
+			status: 500,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	}
+}
+
 async function handleLogin(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
 	try {
 		const loginData = await request.json() as {
@@ -355,6 +412,144 @@ async function handleTraumaInfo(request: Request, env: Env, corsHeaders: Record<
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : '트라우마 정보 처리 중 오류가 발생했습니다.';
 		return new Response(JSON.stringify({ error: errorMessage }), {
+			status: 500,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	}
+}
+
+// Get user reports
+async function handleGetUserReports(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
+	try {
+		const url = new URL(request.url);
+		const userId = url.pathname.split('/').pop();
+		console.log('📊 사용자 리포트 조회 시작, userId:', userId);
+
+		if (!userId) {
+			return new Response(JSON.stringify({ error: 'User ID가 필요합니다.' }), {
+				status: 400,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		// 임시로 빈 배열 반환 (실제로는 데이터베이스에서 조회)
+		const mockReports = [
+			{
+				id: 'report_' + Date.now(),
+				userId: userId,
+				imageId: 'image_1',
+				summary: '오늘 대화는 즐거운 분위기에서 진행되었습니다. 환자분이 가족 사진을 보며 많은 추억을 공유해주셨습니다.',
+				memo: '긍정적인 반응이 많았음. 기억력 상태 양호.',
+				generatedAt: new Date().toISOString(),
+				status: 'COMPLETED',
+				imageThumbnail: null,
+				imageDescription: '가족 사진'
+			}
+		];
+
+		console.log('📊 사용자 리포트 조회 완료, 개수:', mockReports.length);
+
+		return new Response(JSON.stringify({
+			reports: mockReports,
+			totalCount: mockReports.length
+		}), {
+			status: 200,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	} catch (error) {
+		console.error('❌ 사용자 리포트 조회 오류:', error);
+		return new Response(JSON.stringify({
+			error: '리포트 조회 중 오류가 발생했습니다.',
+			details: error instanceof Error ? error.message : String(error)
+		}), {
+			status: 500,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	}
+}
+
+// Generate report from conversation
+async function handleGenerateReport(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
+	try {
+		const data = await request.json() as any;
+		const userId = data.userId;
+		const imageId = data.imageId;
+
+		console.log('📊 리포트 생성 시작:', { userId, imageId });
+
+		if (!userId || !imageId) {
+			return new Response(JSON.stringify({ error: 'userId와 imageId가 필요합니다.' }), {
+				status: 400,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		// 임시 리포트 생성 (실제로는 대화 내용을 분석하여 생성)
+		const reportId = 'report_' + Date.now();
+		const mockReport = {
+			reportId: reportId,
+			userId: userId,
+			imageId: imageId,
+			summary: '대화 세션이 성공적으로 완료되었습니다. 환자분의 참여도가 높았으며 긍정적인 반응을 보였습니다.',
+			memo: '다음 세션에서는 더 다양한 사진을 활용해볼 것을 권장합니다.',
+			generatedAt: new Date().toISOString(),
+			status: 'COMPLETED'
+		};
+
+		console.log('📊 리포트 생성 완료:', reportId);
+
+		return new Response(JSON.stringify(mockReport), {
+			status: 200,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	} catch (error) {
+		console.error('❌ 리포트 생성 오류:', error);
+		return new Response(JSON.stringify({
+			error: '리포트 생성 중 오류가 발생했습니다.',
+			details: error instanceof Error ? error.message : String(error)
+		}), {
+			status: 500,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	}
+}
+
+// Generate PDF report
+async function handleGenerateReportPdf(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
+	try {
+		const data = await request.json() as any;
+		console.log('📄 PDF 생성 시작:', data);
+
+		const { reportId, userId, includeImages, dateRange } = data;
+
+		if (!reportId && !userId) {
+			return new Response(JSON.stringify({ error: 'reportId 또는 userId가 필요합니다.' }), {
+				status: 400,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		// 임시 PDF 생성 응답 (실제로는 PDF 생성 서비스 호출)
+		const pdfResponse = {
+			pdfUrl: `https://example.com/pdf/${reportId || 'user_' + userId}_${Date.now()}.pdf`,
+			reportId: reportId || 'generated_' + Date.now(),
+			generatedAt: new Date().toISOString(),
+			fileSize: 1024 * 1024, // 1MB
+			downloadUrl: `https://example.com/download/${reportId || 'user_' + userId}_${Date.now()}.pdf`
+		};
+
+		console.log('📄 PDF 생성 완료:', pdfResponse.pdfUrl);
+
+		return new Response(JSON.stringify(pdfResponse), {
+			status: 200,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	} catch (error) {
+		console.error('❌ PDF 생성 오류:', error);
+		return new Response(JSON.stringify({
+			error: 'PDF 생성 중 오류가 발생했습니다.',
+			details: error instanceof Error ? error.message : String(error)
+		}), {
 			status: 500,
 			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 		});
@@ -736,6 +931,28 @@ export default {
 
 		if (url.pathname.startsWith('/api/users/') && url.pathname.endsWith('/info') && request.method === 'PUT') {
 			return await handlePatientUpdate(request, env, corsHeaders);
+		}
+
+		if (url.pathname.startsWith('/api/users/') && url.pathname.endsWith('/info') && request.method === 'DELETE') {
+			return await handlePatientDelete(request, env, corsHeaders);
+		}
+
+		// Report API endpoints
+		if (url.pathname.startsWith('/api/reports/user/') && request.method === 'GET') {
+			return await handleGetUserReports(request, env, corsHeaders);
+		}
+
+		if (url.pathname === '/api/reports/generate' && request.method === 'POST') {
+			return await handleGenerateReport(request, env, corsHeaders);
+		}
+
+		if (url.pathname === '/api/reports/generate/pdf' && request.method === 'POST') {
+			return await handleGenerateReportPdf(request, env, corsHeaders);
+		}
+
+		// Legacy report generation endpoint for direct HTML reports
+		if (url.pathname === '/api/generate-report' && request.method === 'POST') {
+			return await handleReportGeneration(request, env, corsHeaders);
 		}
 
 		if (url.pathname === '/analyze-image') {

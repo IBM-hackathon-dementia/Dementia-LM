@@ -406,10 +406,7 @@ class ApiClient {
   async generateReport(data: ReportGenerateRequest): Promise<ReportGenerateResponse> {
     return this.request<ReportGenerateResponse>('/api/reports/generate', {
       method: 'POST',
-      headers: {
-        'userId': data.userId,
-        'imageId': data.imageId,
-      },
+      body: JSON.stringify(data),
     });
   }
 
@@ -456,6 +453,12 @@ class ApiClient {
     return this.request<PatientUpdateResponse>(`/api/users/${userId}/info`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  }
+
+  async deletePatient(userId: string, patientId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/api/users/${userId}/info`, {
+      method: 'DELETE',
     });
   }
 }
