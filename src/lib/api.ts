@@ -215,7 +215,7 @@ class ApiClient {
 
     // Add authorization header if needed
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
       ...options.headers,
     };
 
@@ -238,9 +238,11 @@ class ApiClient {
     console.log('🔍 API Request:', {
       method: config.method || 'GET',
       url,
-      headers,
-      body: config.body
+      headers
     });
+    if (config.body) {
+      console.log('📦 Request Body:', config.body);
+    }
 
     try {
       const response = await fetch(url, config);
@@ -287,17 +289,24 @@ class ApiClient {
   }
 
   async signup(data: SignupRequest): Promise<SignupResponse> {
+    // Ensure data is properly structured before serialization
+    const requestData = {
+      username: String(data.username).trim(),
+      password: String(data.password),
+      name: String(data.name).trim()
+    };
+
     return this.request<SignupResponse>('/api/auth/signup', {
       method: 'POST',
-      body: JSON.stringify(data),
-    });
+      body: JSON.stringify(requestData),
+    }, false);
   }
 
   async login(data: LoginRequest): Promise<LoginResponse> {
     return this.request<LoginResponse>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, false);
   }
 
   async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {

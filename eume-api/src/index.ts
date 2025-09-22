@@ -25,6 +25,150 @@ type Env = {
 	DB: D1Database;
 };
 
+async function handleSignup(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
+	try {
+		console.log('🔍 회원가입 요청 수신:', {
+			method: request.method,
+			url: request.url,
+			headers: Object.fromEntries(request.headers.entries()),
+		});
+
+		let signupData;
+		try {
+			signupData = await request.json() as {
+				username: string;
+				password: string;
+				name: string;
+			};
+			console.log('✅ 파싱된 요청 데이터:', {
+				username: signupData.username,
+				name: signupData.name,
+				hasPassword: !!signupData.password,
+				rawData: signupData
+			});
+		} catch (parseError) {
+			console.error('❌ JSON 파싱 실패:', parseError);
+			// 원본 텍스트도 확인해보기
+			try {
+				const requestText = await request.clone().text();
+				console.log('📄 원본 요청 텍스트:', requestText);
+			} catch (textError) {
+				console.error('텍스트 읽기 실패:', textError);
+			}
+			return new Response(JSON.stringify({ error: 'JSON 파싱 실패' }), {
+				status: 400,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		if (!signupData.username || !signupData.password || !signupData.name) {
+			return new Response(JSON.stringify({ error: '모든 필수 항목을 입력해주세요.' }), {
+				status: 400,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		const d1Storage = new D1Storage(env.DB);
+
+		// Check if user already exists
+		const existingUser = await d1Storage.getUserByUsername(signupData.username);
+		if (existingUser) {
+			return new Response(JSON.stringify({ error: '이미 존재하는 사용자입니다.' }), {
+				status: 409,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		// Create new user
+		const userId = crypto.randomUUID();
+		const user = {
+			id: userId,
+			username: signupData.username,
+			name: signupData.name,
+			role: 'caregiver',
+			createdAt: new Date().toISOString(),
+		};
+
+		console.log('💾 사용자 생성 시작:', { userId, username: signupData.username, name: signupData.name });
+		const startTime = Date.now();
+		await d1Storage.createUser(user, signupData.password);
+		const endTime = Date.now();
+		console.log('✅ 사용자 생성 완료', `소요시간: ${endTime - startTime}ms`);
+
+		const responseData = JSON.stringify(user);
+		console.log('📤 회원가입 성공 응답:', responseData);
+
+		return new Response(responseData, {
+			status: 200,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	} catch (error) {
+		console.error('❌ 회원가입 처리 중 오류:', error);
+		const errorMessage = error instanceof Error ? error.message : '회원가입 중 오류가 발생했습니다.';
+		const errorResponse = JSON.stringify({ error: errorMessage });
+		console.log('📤 에러 응답:', errorResponse);
+
+		return new Response(errorResponse, {
+			status: 500,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	}
+}
+
+async function handleLogin(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
+	try {
+		const loginData = await request.json() as {
+			username: string;
+			password: string;
+		};
+
+		if (!loginData.username || !loginData.password) {
+			return new Response(JSON.stringify({ error: '이메일과 비밀번호를 입력해주세요.' }), {
+				status: 400,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		const d1Storage = new D1Storage(env.DB);
+		const user = await d1Storage.authenticateUser(loginData.username, loginData.password);
+
+		if (!user) {
+			return new Response(JSON.stringify({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }), {
+				status: 401,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			});
+		}
+
+		// Generate simple tokens (in production, use proper JWT)
+		const accessToken = crypto.randomUUID();
+		const refreshToken = crypto.randomUUID();
+
+		// Store tokens in KV for simple auth
+		await env.CONVERSATION_HISTORY.put(`token:${accessToken}`, JSON.stringify({ userId: user.id, type: 'access' }), {
+			expirationTtl: 3600, // 1 hour
+		});
+
+		await env.CONVERSATION_HISTORY.put(`token:${refreshToken}`, JSON.stringify({ userId: user.id, type: 'refresh' }), {
+			expirationTtl: 86400 * 7, // 7 days
+		});
+
+		return new Response(JSON.stringify({
+			accessToken,
+			refreshToken,
+			tokenType: 'Bearer',
+			expiresIn: 3600,
+		}), {
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.';
+		return new Response(JSON.stringify({ error: errorMessage }), {
+			status: 500,
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		});
+	}
+}
+
 async function handleTraumaInfo(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
 	const url = new URL(request.url);
 	const userId = request.headers.get('X-User-ID') || 'default-user';
@@ -419,8 +563,9 @@ export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const corsHeaders = {
 			'Access-Control-Allow-Origin': '*',
-			'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-			'Access-Control-Allow-Headers': 'Content-Type, X-User-ID, X-Photo-Session, X-Image-Analysis, X-Trauma-Info, X-Text-Input',
+			'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-ID, X-Photo-Session, X-Image-Analysis, X-Trauma-Info, X-Text-Input, refreshToken',
+			'Access-Control-Max-Age': '86400'
 		};
 
 		if (request.method === 'OPTIONS') {
@@ -428,6 +573,16 @@ export default {
 		}
 
 		const url = new URL(request.url);
+		console.log('🌐 요청 라우팅:', { pathname: url.pathname, method: request.method });
+
+		if (url.pathname === '/api/auth/signup') {
+			console.log('🚪 회원가입 핸들러로 라우팅');
+			return await handleSignup(request, env, corsHeaders);
+		}
+
+		if (url.pathname === '/api/auth/login') {
+			return await handleLogin(request, env, corsHeaders);
+		}
 
 		if (url.pathname === '/analyze-image') {
 			return await handleImageAnalysis(request, env, corsHeaders);

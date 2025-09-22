@@ -5,6 +5,15 @@ export interface User {
   last_interaction_at: string;
 }
 
+export interface AuthUser {
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ConversationMessage {
   id: number;
   user_id: string;
@@ -316,5 +325,87 @@ export class D1Storage {
     await this.db.prepare(`
       DELETE FROM trauma_info WHERE user_id = ?
     `).bind(userId).run();
+  }
+
+  // 새 사용자 생성
+  async createUser(user: {
+    id: string;
+    username: string;
+    name: string;
+    role: string;
+    createdAt: string;
+  }, password: string): Promise<void> {
+    // Simple password hashing (in production, use proper bcrypt or similar)
+    const hashedPassword = await this.hashPassword(password);
+
+    await this.db.prepare(`
+      INSERT INTO auth_users (id, username, name, role, password_hash, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      user.id,
+      user.username,
+      user.name,
+      user.role,
+      hashedPassword,
+      user.createdAt,
+      user.createdAt
+    ).run();
+  }
+
+  // 사용자명으로 사용자 조회
+  async getUserByUsername(username: string): Promise<AuthUser | null> {
+    const result = await this.db.prepare(`
+      SELECT id, username, name, role, created_at, updated_at
+      FROM auth_users
+      WHERE username = ?
+      LIMIT 1
+    `).bind(username).first();
+
+    return result as AuthUser | null;
+  }
+
+  // 사용자 인증
+  async authenticateUser(username: string, password: string): Promise<AuthUser | null> {
+    const result = await this.db.prepare(`
+      SELECT id, username, name, role, password_hash, created_at, updated_at
+      FROM auth_users
+      WHERE username = ?
+      LIMIT 1
+    `).bind(username).first();
+
+    if (!result) {
+      return null;
+    }
+
+    const user = result as any;
+    const isValidPassword = await this.verifyPassword(password, user.password_hash);
+
+    if (!isValidPassword) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+    };
+  }
+
+  // 간단한 패스워드 해싱 (프로덕션에서는 bcrypt 사용 권장)
+  private async hashPassword(password: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + 'salt123'); // 실제로는 랜덤 솔트 사용
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // 패스워드 검증
+  private async verifyPassword(password: string, hash: string): Promise<boolean> {
+    const computedHash = await this.hashPassword(password);
+    return computedHash === hash;
   }
 }
