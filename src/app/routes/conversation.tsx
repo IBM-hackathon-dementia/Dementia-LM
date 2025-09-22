@@ -625,19 +625,29 @@ const ConversationPage: React.FC = () => {
         const reportData = await reportResponse.json();
         console.log('📊 상세 리포트 생성 완료:', reportData);
 
-        // HTML 리포트 페이지 열기
-        const reportHtml = generateReportHtml(reportData, session.conversationHistory);
-        const newWindow = window.open('', '_blank');
-        if (newWindow) {
-          newWindow.document.write(reportHtml);
-          newWindow.document.close();
-        }
+        // 리포트 데이터를 로컬 스토리지에 저장 (나중에 리포트 페이지에서 접근 가능)
+        const reportId = 'report_' + Date.now();
+        const fullReportData = {
+          id: reportId,
+          userId: auth.caregiver.id,
+          conversations: session.conversationHistory,
+          analysisData: reportData,
+          generatedAt: new Date().toISOString(),
+          status: 'COMPLETED'
+        };
+
+        // 기존 리포트들과 함께 저장
+        const existingReports = JSON.parse(localStorage.getItem('generatedReports') || '[]');
+        existingReports.push(fullReportData);
+        localStorage.setItem('generatedReports', JSON.stringify(existingReports));
 
         // 간단한 리포트도 API에 저장
         await apiClient.generateReport({
           userId: auth.caregiver.id,
           imageId: 'session_' + Date.now()
         });
+
+        console.log('📊 리포트가 성공적으로 저장되었습니다:', reportId);
 
       } catch (error) {
         console.error('❌ 리포트 생성 실패:', error);
