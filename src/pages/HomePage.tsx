@@ -220,7 +220,7 @@ export default function HomePage() {
             formData.append('image', file);
 
             setUploadProgress(40);
-            progressInterval = setInterval(() => {
+            progressInterval = window.setInterval(() => {
                 setUploadProgress(prev => {
                     if (prev < 65) {
                         const increment = Math.random() * 8 + 2;
@@ -238,10 +238,10 @@ export default function HomePage() {
                 body: formData,
             });
 
-            if (progressInterval) clearInterval(progressInterval);
+            if (progressInterval) window.clearInterval(progressInterval);
             setUploadProgress(70);
 
-            analysisInterval = setInterval(() => {
+            analysisInterval = window.setInterval(() => {
                 setUploadProgress(prev => {
                     if (prev < 95) {
                         const increment = Math.random() * 4 + 2;
@@ -257,7 +257,7 @@ export default function HomePage() {
                 throw new Error(result.error || '이미지 분석 중 오류가 발생했습니다.');
             }
 
-            clearInterval(analysisInterval);
+            if (analysisInterval) window.clearInterval(analysisInterval);
             // 분석 완료
             setUploadProgress(100);
 
@@ -281,7 +281,7 @@ export default function HomePage() {
             setIsAnalyzingPhoto(false);
             setStatus('idle');
         } finally {
-            if (progressInterval) clearInterval(progressInterval);
+            if (progressInterval) window.clearInterval(progressInterval);
             if (analysisInterval) clearInterval(analysisInterval);
         }
     };

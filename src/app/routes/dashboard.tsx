@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRecoilValue, useRecoilState, useSetRecoilState } from 'recoil';
 import { authState, patientsState } from '../recoil/atoms';
 import { Patient } from '../recoil/types';
-import { apiClient, PatientCreateRequest, PatientUpdateRequest } from '../../lib/api';
+import { apiClient } from '../../lib/api';
 
 interface PatientFormData {
     name: string;

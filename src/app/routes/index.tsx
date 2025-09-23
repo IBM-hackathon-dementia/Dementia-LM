@@ -116,7 +116,7 @@ const HomePage: React.FC = () => {
 
                                 return (
                                     <div className="space-y-3">
-                                        {recentReports.map((report: any, index: number) => (
+                                        {recentReports.map((report: any) => (
                                             <div
                                                 key={report.id}
                                                 className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors cursor-pointer"
