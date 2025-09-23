@@ -6,7 +6,7 @@ import https from 'https';
 export default defineConfig({
     plugins: [react()],
     server: {
-        port: 3000,
+        port: 3004,
         proxy: {
             '/api': {
                 target: 'https://18.223.212.100:8443',

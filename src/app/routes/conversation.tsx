@@ -880,8 +880,11 @@ const ConversationPage: React.FC = () => {
           totalConversations: session.conversationHistory.length
         };
 
-        // 기존 리포트 생성 API 호출 (프록시를 통해 백엔드로)
-        const reportResponse = await fetch('/api/generate-report', {
+        // 환경별 API URL 설정
+        const API_BASE_URL = 'https://eume-api.hwjinfo.workers.dev';
+
+        // 기존 리포트 생성 API 호출 (Cloudflare Worker로)
+        const reportResponse = await fetch(`${API_BASE_URL}/api/generate-report`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
