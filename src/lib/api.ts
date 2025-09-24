@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// API base URL with fallback
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://18.223.212.100:8443';
 
 // Import auth utilities
 import { AuthTokenManager, refreshTokenIfNeeded } from './auth';
