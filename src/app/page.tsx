@@ -234,55 +234,16 @@ export default function Home() {
         </main>
     );
 }
-                            <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce"></div>
-                            <div
-                                className="w-3 h-3 bg-green-500 rounded-full animate-bounce"
-                                style={{ animationDelay: '0.1s' }}
-                            ></div>
-                            <div
-                                className="w-3 h-3 bg-green-500 rounded-full animate-bounce"
-                                style={{ animationDelay: '0.2s' }}
-                            ></div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex flex-col items-center gap-6">
-                    {!photoSession && (
-                        <div className="relative">
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handlePhotoUpload}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                disabled={status !== 'idle'}
-                            />
-                            <button
-                                disabled={status !== 'idle'}
-                                className="w-16 h-16 rounded-full shadow-xl transition-all duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center bg-green-500 hover:bg-green-600"
-                            <div className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"></div>
-                            <div
-                                className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"
-                                style={{ animationDelay: '0.1s' }}
-                            ></div>
-                            <div
-                                className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"
-  해                             style={{ animationDelay: '0.2s' }}
-                            ></div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex flex-col items-center gap-6">
-                    {!photoSession && (
-                        <div className="relative">
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handlePhotoUpload}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                disabled={status !== 'idle'}
-                            />
-                            <button
-                                disabled={status !== 'idle'}
-                                className="w-16 h-16 rounded-full shadow-xl transition-all duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center bg-orange-400 hover:bg-orange-500"
+                {(status === 'thinking' || status === 'speaking') && (
+                    <div className="flex space-x-1">
+                        <div className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"></div>
+                        <div
+                            className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"
+                            style={{ animationDelay: '0.1s' }}
+                        ></div>
+                        <div
+                            className="w-3 h-3 bg-orange-400 rounded-full animate-bounce"
+                            style={{ animationDelay: '0.2s' }}
+                        ></div>
+                    </div>
+                )}
