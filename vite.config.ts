@@ -42,7 +42,7 @@ export default defineConfig(({ command }) => ({
     },
     define: {
         'import.meta.env.VITE_API_BASE_URL': command === 'build' 
-            ? JSON.stringify('https://18.223.212.100:8443')
+            ? JSON.stringify('http://18.223.212.100:8080')
             : JSON.stringify('http://3.139.119.86:8080')
     }
 }));
