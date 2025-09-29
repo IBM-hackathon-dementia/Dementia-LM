@@ -35,11 +35,26 @@ const LoginPage: React.FC = () => {
 
       const response = await apiClient.login(loginData);
 
+      // Debug: Log token format for troubleshooting
+      console.log('🔍 Login Response Debug:', {
+        accessTokenType: typeof response.accessToken,
+        accessTokenLength: response.accessToken?.length,
+        accessTokenSample: response.accessToken?.substring(0, 50) + '...',
+        tokenStructure: response.accessToken?.split('.').length
+      });
+
       // Store tokens using AuthTokenManager
       AuthTokenManager.setTokens(response);
 
-      // Get user info from JWT token
-      const userInfo = getUserInfoFromToken(response.accessToken);
+      // Get user info from JWT token with enhanced error handling
+      let userInfo = null;
+      try {
+        userInfo = getUserInfoFromToken(response.accessToken);
+        console.log('✅ JWT Decode Success:', userInfo);
+      } catch (jwtError) {
+        console.warn('⚠️ JWT Decode Failed:', jwtError);
+        console.log('Token that failed:', response.accessToken);
+      }
 
       // Create caregiver object - use token info if available, otherwise create default
       const caregiver: Caregiver = {

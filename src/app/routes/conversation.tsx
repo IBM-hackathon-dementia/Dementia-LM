@@ -522,9 +522,213 @@ const ConversationPage: React.FC = () => {
   const [textInput, setTextInput] = useState('');
   const [microphoneError, setMicrophoneError] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+  const [currentImage, setCurrentImage] = useState<{imageUrl: string, description: string, analysis?: string} | null>(null);
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoDescription, setPhotoDescription] = useState('');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 이미지 분석 함수
+  const analyzeImage = async (imageUrl: string): Promise<string> => {
+    try {
+      setIsAnalyzingImage(true);
+      console.log('🔍 백엔드 AI로 사진 분석 중...');
+
+      // Base64 데이터 URL을 Blob으로 변환
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+
+      // FormData로 이미지 전송
+      const formData = new FormData();
+      formData.append('image', blob, 'image.jpg');
+
+      // 백엔드 이미지 분석 API 호출
+      const analysisResponse = await fetch('https://eume-api.hwjinfo.workers.dev/analyze-image', {
+        method: 'POST',
+        headers: {
+          'X-User-ID': localStorage.getItem('userId') || 'default-user'
+        },
+        body: formData
+      });
+
+      if (!analysisResponse.ok) {
+        throw new Error(`이미지 분석 API 호출 실패: ${analysisResponse.status}`);
+      }
+
+      const analysisResult = await analysisResponse.json();
+      const imageAnalysis = analysisResult.imageAnalysis || '사진을 분석했습니다.';
+
+      console.log('✅ AI 이미지 분석 완료:', imageAnalysis);
+
+      // AI 분석 결과에 회상 치료 질문 추가
+      const memoryPrompts = [
+        "이 사진을 보시니 어떤 기억이 떠오르시나요?",
+        "그때의 기분이나 느낌을 기억하고 계시나요?",
+        "이 사진과 관련된 특별한 추억이 있으시다면 들려주세요.",
+        "사진을 보니 누가 떠오르시나요?",
+        "그때 상황을 더 자세히 기억해보실 수 있나요?"
+      ];
+
+      const randomPrompt = memoryPrompts[Math.floor(Math.random() * memoryPrompts.length)];
+
+      return `${imageAnalysis}\n\n${randomPrompt}`;
+    } catch (error) {
+      console.error('❌ 이미지 분석 오류:', error);
+
+      // 백엔드 연결 실패시 기본 응답
+      const fallbackPrompts = [
+        "이 사진에 담긴 소중한 기억들을 함께 나누어볼까요?",
+        "사진을 보시니 어떤 생각이 드시나요?",
+        "이 사진과 관련된 추억을 들려주세요.",
+        "사진을 보시니 누가 떠오르시나요?"
+      ];
+
+      const randomFallback = fallbackPrompts[Math.floor(Math.random() * fallbackPrompts.length)];
+      return randomFallback;
+    } finally {
+      setIsAnalyzingImage(false);
+    }
+  };
+
+  // 사진 파일 선택 처리
+  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedPhoto(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPhotoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 사진 업로드 및 대화 시작
+  const handlePhotoUpload = async () => {
+    if (!selectedPhoto || !photoDescription.trim()) {
+      alert('사진과 설명을 모두 입력해주세요.');
+      return;
+    }
+
+    try {
+      console.log('🚀 이미지 분석 시작 (업로드 우회)');
+
+      // 업로드를 우회하고 직접 이미지 분석 시작
+      const imageUrl = photoPreview!;
+      const analysis = await analyzeImage(imageUrl);
+
+      console.log('✅ 이미지 분석 완료:', analysis);
+
+      setCurrentImage({
+        imageUrl: imageUrl,
+        description: photoDescription.trim(),
+        analysis: analysis
+      });
+
+      // 환영 메시지 추가
+      const welcomeMessage: ConversationMessage = {
+        id: `msg-${Date.now()}`,
+        role: 'assistant',
+        content: `안녕하세요! 업로드해주신 사진을 보니 ${photoDescription.trim()}이시군요. 이 사진에 대해 이야기해볼까요?`,
+        timestamp: new Date()
+      };
+
+      setSession(prev => ({
+        ...prev,
+        conversationHistory: [...prev.conversationHistory, welcomeMessage],
+        stage: 'conversation'
+      }));
+
+      // 상태 초기화
+      setShowPhotoUpload(false);
+      setSelectedPhoto(null);
+      setPhotoPreview(null);
+      setPhotoDescription('');
+
+    } catch (error) {
+      console.error('❌ Photo upload failed:', error);
+      alert('사진 업로드에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  // 페이지 로드 시 대기 중인 이미지 분석 처리
+  useEffect(() => {
+    const handlePendingImageAnalysis = async () => {
+      const pendingImageData = localStorage.getItem('pendingImageAnalysis');
+      if (pendingImageData && auth.selectedPatient) {
+        try {
+          const imageData = JSON.parse(pendingImageData);
+          console.log('🖼️ 이미지 분석 시작:', imageData);
+
+          // 이미지 분석 실행
+          const analysis = await analyzeImage(imageData.imageUrl);
+
+          // 현재 이미지 상태 설정
+          setCurrentImage({
+            imageUrl: imageData.imageUrl,
+            description: imageData.description,
+            analysis: analysis
+          });
+
+          // 이미지 기반 환영 메시지 추가
+          const welcomeMessage: ConversationMessage = {
+            id: `msg-${Date.now()}`,
+            role: 'assistant',
+            content: `안녕하세요! 업로드해주신 사진을 보니 ${imageData.description}이시군요. 이 사진에 대해 이야기해볼까요?`,
+            timestamp: new Date()
+          };
+
+          setSession(prev => ({
+            ...prev,
+            conversationHistory: [...prev.conversationHistory, welcomeMessage],
+            isActive: true,
+            hasPhotoSession: true
+          }));
+
+          // 로컬 스토리지에서 대기 중인 이미지 데이터 제거
+          localStorage.removeItem('pendingImageAnalysis');
+
+          console.log('✅ 이미지 기반 대화 세션 시작됨');
+        } catch (error) {
+          console.error('❌ 이미지 분석 실패:', error);
+          localStorage.removeItem('pendingImageAnalysis');
+        }
+      }
+    };
+
+    handlePendingImageAnalysis();
+  }, [auth.selectedPatient, setSession]);
+
+  // 마이크 권한 미리 확인
+  useEffect(() => {
+    const checkMicrophonePermission = async () => {
+      try {
+        console.log('🔍 마이크 권한 상태 확인 중...');
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('✅ 마이크 권한 허용됨');
+
+        // 즉시 스트림 종료 (권한만 확인)
+        stream.getTracks().forEach(track => track.stop());
+
+        setMicrophoneError(''); // 권한이 있으면 에러 메시지 제거
+      } catch (error) {
+        console.log('⚠️ 마이크 권한 없음:', error);
+
+        if (error instanceof DOMException && error.name === 'NotAllowedError') {
+          setMicrophoneError('🎤 음성 대화를 위해 마이크 권한이 필요합니다. 음성 버튼을 클릭하여 허용해주세요.');
+        }
+      }
+    };
+
+    // 페이지 로드 후 1초 뒤에 권한 확인
+    const timer = setTimeout(checkMicrophonePermission, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // 업로드된 사진 가져오기
   const getUploadedPhotos = () => {
@@ -549,7 +753,34 @@ const ConversationPage: React.FC = () => {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 마이크 권한 상태 확인
+      if (navigator.permissions) {
+        try {
+          const permission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          console.log('🎤 마이크 권한 상태:', permission.state);
+
+          if (permission.state === 'denied') {
+            setMicrophoneError('마이크 접근이 차단되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.');
+            setShowTextInput(true);
+            return;
+          }
+        } catch (permError) {
+          console.log('권한 확인 API 미지원');
+        }
+      }
+
+      console.log('🎤 마이크 접근 요청 중...');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        }
+      });
+
+      console.log('✅ 마이크 접근 성공');
+      setMicrophoneError(''); // 성공 시 에러 메시지 제거
+
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
@@ -600,9 +831,48 @@ const ConversationPage: React.FC = () => {
       setSession(prev => ({ ...prev, isListening: true }));
 
     } catch (error) {
-      console.error('마이크 접근 오류:', error);
-      setMicrophoneError('마이크 접근이 차단되었습니다. 브라우저 주소창 왼쪽의 마이크 아이콘을 클릭하여 권한을 허용해주세요.');
+      console.error('🎤 마이크 접근 오류:', error);
+
+      let errorMessage = '마이크 접근 오류가 발생했습니다.';
+
+      if (error instanceof DOMException) {
+        switch (error.name) {
+          case 'NotAllowedError':
+            errorMessage = '마이크 접근이 차단되었습니다. 브라우저 주소창 옆의 🎤 아이콘을 클릭하여 권한을 허용해주세요.';
+            break;
+          case 'NotFoundError':
+            errorMessage = '마이크를 찾을 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.';
+            break;
+          case 'NotReadableError':
+            errorMessage = '마이크가 다른 프로그램에서 사용 중입니다. 다른 프로그램을 종료한 후 다시 시도해주세요.';
+            break;
+          case 'OverconstrainedError':
+            errorMessage = '마이크 설정에 문제가 있습니다. 다른 마이크를 사용해보세요.';
+            break;
+          case 'SecurityError':
+            errorMessage = '보안상의 이유로 마이크에 접근할 수 없습니다. HTTPS 연결을 확인해주세요.';
+            break;
+          default:
+            errorMessage = `마이크 오류: ${error.message}`;
+        }
+      }
+
+      console.log('📝 마이크 오류 상세:', errorMessage);
+      setMicrophoneError(errorMessage);
       setShowTextInput(true);
+
+      // 권한이 차단된 경우 사용자에게 브라우저 권한 설정 안내
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        // 3초 후 자동으로 권한 재요청 안내
+        setTimeout(() => {
+          if (confirm('마이크 권한이 필요합니다. 브라우저 설정을 열어보시겠습니까?')) {
+            alert(`다음 단계를 따라주세요:
+1. 브라우저 주소창 옆의 🎤 아이콘 클릭
+2. "마이크 허용" 선택
+3. 페이지 새로고침 후 다시 시도`);
+          }
+        }, 2000);
+      }
     }
   };
 
@@ -730,8 +1000,13 @@ const ConversationPage: React.FC = () => {
 
       const headers: Record<string, string> = {
         'X-User-ID': userId,
-        'X-Photo-Session': uploadedPhotos.length > 0 ? 'true' : 'false',
+        'X-Photo-Session': (uploadedPhotos.length > 0 || currentImage) ? 'true' : 'false',
       };
+
+      // 현재 이미지 분석 정보 추가
+      if (currentImage && currentImage.analysis) {
+        headers['X-Image-Analysis'] = btoa(encodeURIComponent(currentImage.analysis));
+      }
 
       const response = await fetch('https://eume-api.hwjinfo.workers.dev', {
         method: 'POST',
@@ -997,10 +1272,138 @@ const ConversationPage: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-8">
+        {/* 사진 업로드 섹션 */}
+        {session.conversationHistory.length === 0 && !currentImage && (
+          <div className="mb-8 bg-white rounded-2xl shadow-lg p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+              🖼️ 사진과 함께 대화를 시작해보세요
+            </h2>
+
+            {!showPhotoUpload ? (
+              <div className="text-center">
+                <p className="text-gray-600 mb-6">
+                  사진을 업로드하면 AI가 이미지를 분석하여 더 의미있는 회상 대화를 시작할 수 있습니다.
+                </p>
+                <button
+                  onClick={() => setShowPhotoUpload(true)}
+                  className="px-8 py-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors text-lg"
+                >
+                  📷 사진 업로드하기
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex flex-col items-center space-y-4">
+                  {photoPreview ? (
+                    <div className="relative">
+                      <img
+                        src={photoPreview}
+                        alt="미리보기"
+                        className="max-w-md max-h-64 object-contain rounded-lg shadow-md"
+                      />
+                      <button
+                        onClick={() => {
+                          setSelectedPhoto(null);
+                          setPhotoPreview(null);
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer">
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-green-500 transition-colors">
+                        <div className="text-gray-500 text-lg mb-2">📷</div>
+                        <p className="text-gray-600">클릭하여 사진을 선택하세요</p>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoSelect}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    사진 설명
+                  </label>
+                  <textarea
+                    value={photoDescription}
+                    onChange={(e) => setPhotoDescription(e.target.value)}
+                    placeholder="이 사진에 대한 간단한 설명을 입력해주세요..."
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex space-x-4 justify-center">
+                  <button
+                    onClick={() => {
+                      setShowPhotoUpload(false);
+                      setSelectedPhoto(null);
+                      setPhotoPreview(null);
+                      setPhotoDescription('');
+                    }}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handlePhotoUpload}
+                    disabled={!selectedPhoto || !photoDescription.trim()}
+                    className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    대화 시작하기
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* 대화 영역 */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl shadow-lg p-8">
+              {/* 현재 분석 중인 이미지 표시 */}
+              {(isAnalyzingImage || currentImage) && (
+                <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200">
+                  <div className="flex items-center justify-center mb-4">
+                    {isAnalyzingImage ? (
+                      <div className="flex items-center space-x-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+                        <span className="text-lg font-medium text-blue-700">🔍 사진 분석 중...</span>
+                      </div>
+                    ) : (
+                      <span className="text-lg font-medium text-blue-700">📷 현재 대화 중인 사진</span>
+                    )}
+                  </div>
+                  {currentImage && (
+                    <div className="text-center">
+                      <img
+                        src={currentImage.imageUrl}
+                        alt={currentImage.description}
+                        className="max-w-xs max-h-48 mx-auto rounded-lg shadow-md object-cover mb-3"
+                      />
+                      <p className="text-gray-700 font-medium">{currentImage.description}</p>
+                      {currentImage.analysis && (
+                        <div className="mt-3 p-3 bg-white rounded-lg text-sm text-gray-600">
+                          <p className="font-medium mb-1">🤖 AI 분석 결과:</p>
+                          <p>{currentImage.analysis.length > 100
+                            ? currentImage.analysis.substring(0, 100) + '...'
+                            : currentImage.analysis}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="text-center">
                 <div className="mb-8">
                   <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center">

@@ -80,7 +80,18 @@ const UploadPage: React.FC = () => {
       // 저장된 사진 목록 새로고침
       await loadSavedPhotos();
 
-      alert('사진이 성공적으로 저장되었습니다!');
+      // 이미지 분석 및 회상 대화 시작 제안
+      if (confirm('사진이 성공적으로 저장되었습니다!\n\n이 사진으로 AI와 회상 대화를 시작하시겠습니까?')) {
+        // 이미지를 로컬스토리지에 저장하고 대화 페이지로 이동
+        const imageData = {
+          imageUrl: selectedPhoto.preview,
+          description: description,
+          uploadedAt: new Date().toISOString()
+        };
+
+        localStorage.setItem('pendingImageAnalysis', JSON.stringify(imageData));
+        navigate('/conversation');
+      }
     } catch (error) {
       console.error('❌ Image upload failed:', error);
       alert('사진 저장에 실패했습니다.');
@@ -445,16 +456,33 @@ const UploadPage: React.FC = () => {
                         사용 횟수: {photo.usageCount}회
                       </p>
                     </div>
-                    <div style={{
-                      padding: '4px 8px',
-                      background: photo.status === 'ACTIVE' ? 'var(--color-success-light)' : 'var(--color-warning-light)',
-                      color: photo.status === 'ACTIVE' ? 'var(--color-success-dark)' : 'var(--color-warning-dark)',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: 'var(--text-sm)',
-                      textAlign: 'center'
-                    }}>
-                      {photo.status === 'ACTIVE' ? '활성' : '비활성'}
+                    <div style={{ marginBottom: 'var(--space-3)' }}>
+                      <div style={{
+                        padding: '4px 8px',
+                        background: photo.status === 'ACTIVE' ? 'var(--color-success-light)' : 'var(--color-warning-light)',
+                        color: photo.status === 'ACTIVE' ? 'var(--color-success-dark)' : 'var(--color-warning-dark)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: 'var(--text-sm)',
+                        textAlign: 'center'
+                      }}>
+                        {photo.status === 'ACTIVE' ? '활성' : '비활성'}
+                      </div>
                     </div>
+                    <button
+                      onClick={() => {
+                        const imageData = {
+                          imageUrl: photo.imageUrl,
+                          description: photo.description,
+                          uploadedAt: photo.uploadedAt
+                        };
+                        localStorage.setItem('pendingImageAnalysis', JSON.stringify(imageData));
+                        navigate('/conversation');
+                      }}
+                      className="btn btn-primary btn-sm"
+                      style={{ width: '100%', fontSize: 'var(--text-sm)' }}
+                    >
+                      💬 이 사진으로 대화하기
+                    </button>
                   </div>
                 ))}
               </div>

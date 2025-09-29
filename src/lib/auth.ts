@@ -82,7 +82,23 @@ export class AuthTokenManager {
 // JWT token decoder utility
 export function decodeJWT(token: string): any {
   try {
-    const base64Url = token.split('.')[1];
+    if (!token || typeof token !== 'string') {
+      console.error('Invalid token provided:', token);
+      return null;
+    }
+
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      console.error('Invalid JWT format - expected 3 parts, got:', parts.length);
+      return null;
+    }
+
+    const base64Url = parts[1];
+    if (!base64Url) {
+      console.error('Missing JWT payload part');
+      return null;
+    }
+
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const jsonPayload = decodeURIComponent(
       atob(base64)

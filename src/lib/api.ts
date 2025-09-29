@@ -1,5 +1,5 @@
 // API base URL with fallback
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://eume-api.hwjinfo.workers.dev';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL === '' ? '' : (import.meta.env.VITE_API_BASE_URL || 'https://eume-api.hwjinfo.workers.dev');
 
 // Import auth utilities
 import { AuthTokenManager, refreshTokenIfNeeded } from './auth';
@@ -253,14 +253,14 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {},
+    options: RequestInit & { skipContentType?: boolean } = {},
     includeAuth: boolean = true
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
     // Add authorization header if needed
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json; charset=utf-8',
+      ...(options.skipContentType ? {} : { 'Content-Type': 'application/json; charset=utf-8' }),
       ...(options.headers as Record<string, string> || {}),
     };
 
@@ -274,9 +274,10 @@ class ApiClient {
       }
     }
 
+    const { skipContentType, ...requestOptions } = options;
     const config: RequestInit = {
       headers,
-      ...options,
+      ...requestOptions,
     };
 
     // Log request details for debugging
@@ -386,11 +387,21 @@ class ApiClient {
     });
   }
 
-  async uploadImage(data: ImageUploadRequest): Promise<ImageUploadResponse> {
-    return this.request<ImageUploadResponse>('/api/images/upload', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+  async uploadImage(data: FormData | ImageUploadRequest): Promise<ImageUploadResponse> {
+    if (data instanceof FormData) {
+      // FormData인 경우 직접 전송
+      return this.request<ImageUploadResponse>('/api/images/upload', {
+        method: 'POST',
+        body: data,
+        skipContentType: true, // FormData는 브라우저가 자동으로 Content-Type 설정
+      });
+    } else {
+      // JSON 객체인 경우 기존 방식
+      return this.request<ImageUploadResponse>('/api/images/upload', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    }
   }
 
   async getUserImages(userId: string): Promise<UserImagesResponse> {
