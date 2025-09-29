@@ -1331,12 +1331,12 @@ const ConversationPage: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    사진 설명
+                    간단한 사진 설명
                   </label>
                   <textarea
                     value={photoDescription}
                     onChange={(e) => setPhotoDescription(e.target.value)}
-                    placeholder="이 사진에 대한 간단한 설명을 입력해주세요..."
+                    placeholder="이 사진에 대하여 참고할만한 간단한 설명을 입력해주세요...!"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     rows={3}
                   />
@@ -1402,7 +1402,7 @@ const ConversationPage: React.FC = () => {
                                 : currentImage.analysis.substring(0, 100) + '...'}
                             </p>
                             {currentImage.analysis.length > 100 && (
-                              <button 
+                              <button
                                 onClick={() => setShowFullAnalysis(!showFullAnalysis)}
                                 className="text-blue-500 hover:text-blue-700 text-sm font-medium"
                               >

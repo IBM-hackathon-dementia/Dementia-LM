@@ -347,7 +347,7 @@ const UploadPage: React.FC = () => {
                     marginBottom: 'var(--space-2)',
                     fontWeight: '500'
                   }}>
-                    사진 설명
+                    간단한 사진 설명
                   </label>
                   <textarea
                     value={description}
