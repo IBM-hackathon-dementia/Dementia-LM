@@ -1131,7 +1131,8 @@ async function handleImageAnalysis(request: Request, env: Env, corsHeaders: Reco
 - 색깔, 물건, 표현 등에서 인상적인 부분
 - 그 시절의 특징을 보여주는 것들
 
-구체적이고 생생하게 한국어로 설명해주세요.`,
+구체적이고 생생하게 한국어로 설명해주세요.
+사람과 대화하듯 자연스러운 문장으로 설명해주세요.`,
 			max_tokens: 1024,
 		});
 

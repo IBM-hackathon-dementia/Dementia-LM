@@ -528,6 +528,7 @@ const ConversationPage: React.FC = () => {
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoDescription, setPhotoDescription] = useState('');
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -633,7 +634,7 @@ const ConversationPage: React.FC = () => {
       const welcomeMessage: ConversationMessage = {
         id: `msg-${Date.now()}`,
         role: 'assistant',
-        content: `안녕하세요! 업로드해주신 사진을 보니 ${photoDescription.trim()}이시군요. 이 사진에 대해 이야기해볼까요?`,
+        content: `${photoDescription.trim()}. \n 사진을 정상적으로 입력 받았습니다. \n 이 사진에 대해 대화해볼까요?`,
         timestamp: new Date()
       };
 
@@ -678,7 +679,7 @@ const ConversationPage: React.FC = () => {
           const welcomeMessage: ConversationMessage = {
             id: `msg-${Date.now()}`,
             role: 'assistant',
-            content: `안녕하세요! 업로드해주신 사진을 보니 ${imageData.description}이시군요. 이 사진에 대해 이야기해볼까요?`,
+            content: `${photoDescription.trim()}. \n 사진을 정상적으로 입력 받았습니다. \n 이 사진에 대해 대화해볼까요?`,
             timestamp: new Date()
           };
 
@@ -1117,10 +1118,20 @@ const ConversationPage: React.FC = () => {
         currentConversationId: Date.now().toString(),
       }));
 
+      // 첫 인사말
+      const welcomeMessage: ConversationMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `안녕하세요, ${auth.selectedPatient?.name}님! \n 오늘 함께 옛날 이야기를 나누어보아요.`,
+        timestamp: new Date(),
+      };
+
       setSession(prev => ({
         ...prev,
-        conversationHistory: [],
+        conversationHistory: [welcomeMessage],
       }));
+
+      speakText(welcomeMessage.content);
     }
   };
 
@@ -1266,19 +1277,20 @@ const ConversationPage: React.FC = () => {
         {session.conversationHistory.length === 0 && !currentImage && (
           <div className="mb-8 bg-white rounded-2xl shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-              🖼️ 사진과 함께 대화를 시작해보세요
+              추억속의 사진과 함께 대화를 시작해보세요!
             </h2>
-
+            <p></p>
             {!showPhotoUpload ? (
               <div className="text-center">
+                <br />
                 <p className="text-gray-600 mb-6">
-                  사진을 업로드하면 AI가 이미지를 분석하여 더 의미있는 회상 대화를 시작할 수 있습니다.
+                  사진을 업로드하면 AI가 깊이있게 분석하여 <br /> 더 효과적인 회상 대화를 진행할 수 있습니다.
                 </p>
                 <button
                   onClick={() => setShowPhotoUpload(true)}
                   className="px-8 py-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors text-lg"
                 >
-                  📷 사진 업로드하기
+                  🖼️ 사진 업로드하기
                 </button>
               </div>
             ) : (
@@ -1383,10 +1395,21 @@ const ConversationPage: React.FC = () => {
                       {currentImage.analysis && (
                         <div className="mt-3 p-3 bg-white rounded-lg text-sm text-gray-600">
                           <p className="font-medium mb-1">🤖 AI 분석 결과:</p>
-                          <p>{currentImage.analysis.length > 100
-                            ? currentImage.analysis.substring(0, 100) + '...'
-                            : currentImage.analysis}
-                          </p>
+                          <div>
+                            <p className="mb-2">
+                              {showFullAnalysis
+                                ? currentImage.analysis
+                                : currentImage.analysis.substring(0, 100) + '...'}
+                            </p>
+                            {currentImage.analysis.length > 100 && (
+                              <button 
+                                onClick={() => setShowFullAnalysis(!showFullAnalysis)}
+                                className="text-blue-500 hover:text-blue-700 text-sm font-medium"
+                              >
+                                {showFullAnalysis ? '접기' : '자세히 보기'}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1447,7 +1470,7 @@ const ConversationPage: React.FC = () => {
                 }}>
                   {getUploadedPhotos().length > 0
                     ? '업로드하신 사진들에 대해 이야기해보세요!'
-                    : '아래 버튼을 누르고 말씀해주세요.'
+                    : '사진 없이 이음이와 대화해보세요.'
                   }
                 </p>
               </div>
@@ -1774,9 +1797,9 @@ const ConversationPage: React.FC = () => {
                     대화 팁
                   </h4>
                   <ul className="text-sm text-green-700 space-y-2">
-                    <li>• 마이크 버튼을 눌러 말씀해 주세요</li>
-                    <li>• 언제든지 대화를 중지할 수 있습니다</li>
-                    <li>• 대화 종료 시 보고서가 제공됩니다!</li>
+                    <li>• 마이크 버튼을 눌러 <br /> 편안하게 말씀해 주세요</li>
+                    <li>• 언제든지 대화를 중지하실 수 있습니다</li>
+                    <li>• 대화 종료 시 자동으로 <br />  보고서가 제공됩니다!</li>
                   </ul>
                 </div>
               </div>
