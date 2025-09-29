@@ -171,13 +171,6 @@ const HomePage: React.FC = () => {
                             <div className="space-y-3">
                                 <button
                                     className="w-full flex items-center justify-center space-x-3 bg-green-50 text-green-700 py-4 px-4 rounded-lg hover:bg-green-100 transition-colors"
-                                    onClick={() => navigate('/upload')}
-                                >
-                                    <span className="text-2xl">📷</span>
-                                    <span className="font-medium">사진 추가</span>
-                                </button>
-                                <button
-                                    className="w-full flex items-center justify-center space-x-3 bg-green-50 text-green-700 py-4 px-4 rounded-lg hover:bg-green-100 transition-colors"
                                     onClick={() => navigate('/reports')}
                                 >
                                     <span className="text-2xl">📊</span>
