@@ -41,8 +41,8 @@ export default defineConfig(({ command }) => ({
         outDir: 'dist',
     },
     define: {
-        'import.meta.env.VITE_API_BASE_URL': command === 'build' 
-            ? JSON.stringify('http://18.223.212.100:8080')
+        'import.meta.env.VITE_API_BASE_URL': command === 'build'
+            ? JSON.stringify('https://eume-api.hwjinfo.workers.dev')
             : JSON.stringify('http://3.139.119.86:8080')
     }
 }));

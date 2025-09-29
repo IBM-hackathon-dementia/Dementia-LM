@@ -1,0 +1,83 @@
+{
+  "deploymentConfig": {
+    "name": "e-umm-deployment",
+    "description": "Complete Cloudflare deployment for e-umm platform",
+    "version": "1.0.0"
+  },
+  "frontend": {
+    "platform": "cloudflare-pages",
+    "repository": "git@github.com:your-username/e-umm.git",
+    "buildCommand": "npm run build",
+    "publishDirectory": "dist",
+    "environmentVariables": {
+      "NODE_ENV": "production",
+      "VITE_API_BASE_URL": "https://eume-api.hwjinfo.workers.dev"
+    },
+    "customDomain": {
+      "production": "eume.pages.dev",
+      "preview": "test.eume.pages.dev"
+    }
+  },
+  "backend": {
+    "platform": "cloudflare-workers",
+    "workerName": "eume-api",
+    "deployment": {
+      "script": "cd eume-api && wrangler deploy",
+      "environment": "production"
+    },
+    "databases": {
+      "d1": {
+        "binding": "DB",
+        "databaseName": "eume-database",
+        "schemaFile": "schema.sql"
+      }
+    },
+    "kvStorage": {
+      "binding": "CONVERSATION_HISTORY",
+      "namespaceId": "b314b5fad40d4011a90e8baa3a9ceb9d"
+    },
+    "aiBinding": {
+      "binding": "AI",
+      "models": [
+        "@cf/google/gemma-3-12b-it",
+        "@cf/openai/whisper",
+        "@cf/llava-hf/llava-1.5-7b-hf"
+      ]
+    }
+  },
+  "deploymentSteps": [
+    {
+      "step": 1,
+      "name": "Deploy Backend",
+      "command": "cd eume-api && wrangler deploy",
+      "description": "Deploy Cloudflare Worker API"
+    },
+    {
+      "step": 2,
+      "name": "Setup D1 Database",
+      "command": "cd eume-api && wrangler d1 execute eume-database --file=schema.sql --remote",
+      "description": "Initialize D1 database with schema"
+    },
+    {
+      "step": 3,
+      "name": "Deploy Frontend",
+      "command": "npm run build && wrangler pages deploy dist --project-name=e-umm-frontend",
+      "description": "Deploy frontend to Cloudflare Pages"
+    },
+    {
+      "step": 4,
+      "name": "Verify Deployment",
+      "description": "Test API endpoints and frontend functionality"
+    }
+  ],
+  "monitoring": {
+    "healthChecks": [
+      "https://eume-api.hwjinfo.workers.dev/health",
+      "https://eume.pages.dev"
+    ],
+    "alerts": {
+      "email": "hongwoojin471@gmail.com",
+      "webhook": null
+    }
+  }
+}

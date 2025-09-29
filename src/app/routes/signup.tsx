@@ -61,7 +61,32 @@ const SignupPage: React.FC = () => {
       // Navigate to dashboard
       navigate('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '회원가입 중 오류가 발생했습니다.');
+      console.error('Signup error:', err);
+
+      // Parse error message for better user experience
+      let errorMessage = '회원가입 중 오류가 발생했습니다.';
+
+      if (err instanceof Error) {
+        const message = err.message.toLowerCase();
+
+        if (message.includes('409') || message.includes('conflict') ||
+            message.includes('이미 존재하는 사용자입니다')) {
+          errorMessage = '👤 이미 가입된 이메일입니다.\n• 다른 이메일 주소를 사용해주세요\n• 이미 가입하셨다면 로그인을 시도해주세요';
+        } else if (message.includes('400') || message.includes('bad request')) {
+          errorMessage = '📝 입력 정보를 확인해주세요.\n• 이메일 형식이 올바른지 확인해주세요\n• 비밀번호는 8자 이상이어야 합니다';
+        } else if (message.includes('500') || message.includes('server')) {
+          errorMessage = '⚠️ 서버에 일시적인 문제가 발생했습니다.\n잠시 후 다시 시도해주세요.';
+        } else if (message.includes('network') || message.includes('fetch')) {
+          errorMessage = '🌐 네트워크 연결을 확인해주세요.\n인터넷 연결 상태를 점검해주세요.';
+        } else {
+          // Use the actual error message from backend if it's in Korean
+          errorMessage = err.message.includes('한글') || /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(err.message)
+            ? `❌ ${err.message}`
+            : errorMessage;
+        }
+      }
+
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -99,11 +124,19 @@ const SignupPage: React.FC = () => {
                 padding: 'var(--space-4)',
                 marginBottom: 'var(--space-4)',
                 backgroundColor: '#fee2e2',
-                border: '1px solid #fecaca',
+                border: '2px solid #f87171',
                 borderRadius: 'var(--radius-lg)',
-                color: '#dc2626'
+                color: '#dc2626',
+                textAlign: 'left',
+                fontSize: '15px',
+                lineHeight: '1.5',
+                boxShadow: '0 2px 8px rgba(220, 38, 38, 0.1)'
               }}>
-                {error}
+                {error.split('\n').map((line, index) => (
+                  <div key={index} style={{ marginBottom: index < error.split('\n').length - 1 ? '8px' : '0' }}>
+                    {line}
+                  </div>
+                ))}
               </div>
             )}
 

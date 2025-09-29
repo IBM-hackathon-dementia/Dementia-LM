@@ -41,34 +41,54 @@ const LoginPage: React.FC = () => {
       // Get user info from JWT token
       const userInfo = getUserInfoFromToken(response.accessToken);
 
-      if (userInfo) {
-        // Create caregiver object from token info
-        const caregiver: Caregiver = {
-          id: userInfo.uid,
-          name: '', // We'll need to get this from a separate API call or signup data
-          email: userInfo.sub,
-          createdAt: new Date(userInfo.iat * 1000),
-        };
+      // Create caregiver object - use token info if available, otherwise create default
+      const caregiver: Caregiver = {
+        id: userInfo?.uid || 'temp-user-id',
+        name: userInfo?.sub || formData.email.split('@')[0] || '사용자',
+        email: userInfo?.sub || formData.email,
+        createdAt: userInfo ? new Date(userInfo.iat * 1000) : new Date(),
+      };
 
-        // Set authenticated state
-        setAuth({
-          isAuthenticated: true,
-          caregiver,
-          selectedPatient: null,
-        });
-      } else {
-        // Set minimal authenticated state
-        setAuth({
-          isAuthenticated: true,
-          caregiver: null,
-          selectedPatient: null,
-        });
-      }
+      // Set authenticated state
+      setAuth({
+        isAuthenticated: true,
+        caregiver,
+        selectedPatient: null,
+      });
 
       // Navigate to dashboard
       navigate('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인 중 오류가 발생했습니다.');
+      console.error('Login error:', err);
+
+      // Parse error message for better user experience
+      let errorMessage = '로그인 중 오류가 발생했습니다.';
+
+      if (err instanceof Error) {
+        const message = err.message.toLowerCase();
+
+        if (message.includes('401') || message.includes('unauthorized') ||
+            message.includes('이메일 또는 비밀번호가 올바르지 않습니다')) {
+          errorMessage = '🔐 이메일 또는 비밀번호가 올바르지 않습니다.\n입력하신 정보를 다시 확인해주세요.';
+        } else if (message.includes('404') || message.includes('not found')) {
+          errorMessage = '👤 존재하지 않는 사용자입니다.\n회원가입을 먼저 진행해주세요.';
+        } else if (message.includes('403') || message.includes('forbidden')) {
+          errorMessage = '🚫 계정이 비활성화되었습니다.\n관리자에게 문의해주세요.';
+        } else if (message.includes('500') || message.includes('server')) {
+          errorMessage = '⚠️ 서버에 일시적인 문제가 발생했습니다.\n잠시 후 다시 시도해주세요.';
+        } else if (message.includes('network') || message.includes('fetch')) {
+          errorMessage = '🌐 네트워크 연결을 확인해주세요.\n인터넷 연결 상태를 점검해주세요.';
+        } else if (err.message.includes('이메일 또는 비밀번호가 올바르지 않습니다')) {
+          errorMessage = '🔐 이메일 또는 비밀번호가 올바르지 않습니다.\n• 이메일 주소를 정확히 입력했는지 확인해주세요\n• 비밀번호는 대소문자를 구분합니다\n• 비밀번호를 잊으셨다면 관리자에게 문의해주세요';
+        } else {
+          // Use the actual error message from backend if it's in Korean
+          errorMessage = err.message.includes('한글') || /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(err.message)
+            ? `❌ ${err.message}`
+            : errorMessage;
+        }
+      }
+
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -126,11 +146,19 @@ const LoginPage: React.FC = () => {
                 padding: 'var(--space-4)',
                 marginBottom: 'var(--space-4)',
                 backgroundColor: '#fee2e2',
-                border: '1px solid #fecaca',
+                border: '2px solid #f87171',
                 borderRadius: 'var(--radius-lg)',
-                color: '#dc2626'
+                color: '#dc2626',
+                textAlign: 'left',
+                fontSize: '15px',
+                lineHeight: '1.5',
+                boxShadow: '0 2px 8px rgba(220, 38, 38, 0.1)'
               }}>
-                {error}
+                {error.split('\n').map((line, index) => (
+                  <div key={index} style={{ marginBottom: index < error.split('\n').length - 1 ? '8px' : '0' }}>
+                    {line}
+                  </div>
+                ))}
               </div>
             )}
 

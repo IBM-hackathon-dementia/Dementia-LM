@@ -1,5 +1,5 @@
 // API base URL with fallback
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://18.223.212.100:8080';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://eume-api.hwjinfo.workers.dev';
 
 // Import auth utilities
 import { AuthTokenManager, refreshTokenIfNeeded } from './auth';

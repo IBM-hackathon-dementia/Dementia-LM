@@ -1,6 +1,5 @@
 import { ragSystem } from './utils/rag-system';
 import { reportRagSystem } from './utils/report-rag-system';
-import { SupabaseStorage } from './utils/supabase';
 import { PersonalizedQuestionSystem } from './utils/personalized-question-system';
 import { D1Storage } from './utils/d1-storage';
 
@@ -20,8 +19,6 @@ interface SessionData {
 type Env = {
 	CONVERSATION_HISTORY: KVNamespace;
 	AI: Ai;
-	SUPABASE_URL: string;
-	SUPABASE_ANON_KEY: string;
 	DB: D1Database;
 };
 
@@ -1561,8 +1558,8 @@ export default {
 			const d1Storage = new D1Storage(env.DB);
 			const history = await d1Storage.getConversationHistory(userId);
 
-			// 개인화된 질문 시스템 (D1 기반으로 추후 구현 가능)
-			let personalizedQSystem = null;
+			// 개인화된 질문 시스템 (D1 기반)
+			const personalizedQSystem = new PersonalizedQuestionSystem(env.DB);
 
 			// 트라우마 정보 조회 (헤더에서 읽기)
 			let traumaInfo = null;
@@ -1790,7 +1787,7 @@ ${
 			// 사용자 반응 분석 (긍정적 반응인지 판단)
 			const isPositiveResponse = await analyzeUserResponse(userText, env.AI);
 
-			// 이전 메시지에서 사용된 키워드가 있다면 효과성 기록 (Supabase가 있을 때만)
+			// 이전 메시지에서 사용된 키워드가 있다면 효과성 기록
 			if (personalizedQSystem && recentMessages.length > 0) {
 				try {
 					const lastAssistantMessage = recentMessages.filter((msg) => msg.role === 'assistant').pop();
@@ -1805,7 +1802,7 @@ ${
 				}
 			}
 
-			// 개인화된 차기 질문 생성 (Supabase가 있고 대화가 끝나지 않았을 때)
+			// 개인화된 차기 질문 생성 (대화가 끝나지 않았을 때)
 			let personalizedSuggestion = '';
 			if (personalizedQSystem && !userText.includes('고마워') && !userText.includes('끝') && !userText.includes('안녕')) {
 				try {

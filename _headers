@@ -1,6 +1,58 @@
-[build]
-command = "npm run build"
-publish = "dist"
+# Cloudflare Pages Headers Configuration
+# Security and CORS headers for e-umm frontend
 
-[build.environment]
-NODE_VERSION = "18"
+/*
+  # Security Headers
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # Content Security Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://eume-api.hwjinfo.workers.dev https://api.cloudflare.com; media-src 'self' blob:; font-src 'self' data:
+
+  # CORS Headers for API communication
+  Access-Control-Allow-Origin: https://eume-api.hwjinfo.workers.dev
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization, X-User-ID, X-Photo-Session, X-Image-Analysis, X-Trauma-Info, X-Text-Input, refreshToken
+
+# API routes - additional CORS for /api paths
+/api/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization, X-User-ID, X-Photo-Session, X-Image-Analysis, X-Trauma-Info, X-Text-Input, refreshToken
+
+# Cache static assets
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.png
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.jpg
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.jpeg
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.webp
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.svg
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.ico
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.woff
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML files - short cache
+/*.html
+  Cache-Control: public, max-age=300

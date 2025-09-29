@@ -1,4 +1,4 @@
-import { SupabaseStorage } from './supabase';
+import { D1Storage } from './d1-storage';
 
 export interface PersonalizedQuestion {
     question: string;
@@ -8,15 +8,15 @@ export interface PersonalizedQuestion {
 }
 
 export class PersonalizedQuestionSystem {
-    private supabase: SupabaseStorage;
+    private d1Storage: D1Storage;
 
-    constructor(supabaseUrl: string, supabaseKey: string) {
-        this.supabase = new SupabaseStorage(supabaseUrl, supabaseKey);
+    constructor(database: D1Database) {
+        this.d1Storage = new D1Storage(database);
     }
 
     // LLM을 사용해 과거 대화에서 효과적인 패턴 분석
     async analyzeConversationPatterns(userId: string, aiRunner: any): Promise<string[]> {
-        const messages = await this.supabase.getRecentMessages(userId, 30);
+        const messages = await this.d1Storage.getRecentMessages(userId, 30);
 
         if (messages.length < 6) {
             return []; // 충분한 대화 데이터가 없으면 빈 배열 반환
@@ -60,10 +60,10 @@ ${conversationText}
     // 개인화된 다음 질문 생성
     async generatePersonalizedQuestion(userId: string, aiRunner: any, currentContext: string = ''): Promise<PersonalizedQuestion> {
         // 1. 과거 효과적인 주제들 조회
-        const effectiveTopics = await this.supabase.getEffectiveTopics(userId, 5);
+        const effectiveTopics = await this.d1Storage.getEffectiveTopics(userId, 5);
 
-        // 2. 최근 대화에서 긍정적 키워드 분석
-        const recentKeywords = await this.supabase.analyzePositiveKeywords(userId);
+        // 2. 최근 대화에서 긍정적 키워드 분석 (D1에서는 간단한 구현)
+        const recentKeywords = await this.analyzePositiveKeywordsD1(userId);
 
         // 3. LLM으로 패턴 분석
         const aiAnalyzedKeywords = await this.analyzeConversationPatterns(userId, aiRunner);
@@ -141,7 +141,7 @@ JSON 형식으로 응답:
         if (keywords.length === 0) return 0.5;
 
         const effectivenesses = await Promise.all(
-            keywords.map(keyword => this.supabase.getTopicEffectiveness(userId, [keyword]))
+            keywords.map(keyword => this.getTopicEffectivenessD1(userId, [keyword]))
         );
 
         // 평균 효과성 계산
@@ -158,13 +158,13 @@ JSON 형식으로 응답:
         if (keywords.length === 0) return;
 
         // 개별 키워드와 조합 모두 저장
-        await this.supabase.saveEffectiveTopic(userId, keywords, wasEffective);
+        await this.d1Storage.saveEffectiveTopic(userId, keywords, wasEffective);
 
         // 2개 키워드 조합도 저장
         if (keywords.length >= 2) {
             for (let i = 0; i < keywords.length - 1; i++) {
                 for (let j = i + 1; j < keywords.length; j++) {
-                    await this.supabase.saveEffectiveTopic(userId, [keywords[i], keywords[j]], wasEffective);
+                    await this.d1Storage.saveEffectiveTopic(userId, [keywords[i], keywords[j]], wasEffective);
                 }
             }
         }
@@ -177,8 +177,8 @@ JSON 형식으로 응답:
         averageSuccessRate: number;
         topKeywords: string[];
     }> {
-        const effectiveTopics = await this.supabase.getEffectiveTopics(userId, 50);
-        const recentKeywords = await this.supabase.analyzePositiveKeywords(userId);
+        const effectiveTopics = await this.d1Storage.getEffectiveTopics(userId, 50);
+        const recentKeywords = await this.analyzePositiveKeywordsD1(userId);
 
         const totalTopics = effectiveTopics.length;
         const highEffectiveTopics = effectiveTopics.filter(topic => topic.success_rate > 0.6).length;
@@ -192,5 +192,59 @@ JSON 형식으로 응답:
             averageSuccessRate: avgSuccessRate,
             topKeywords: recentKeywords.slice(0, 5)
         };
+    }
+
+    // D1 기반 긍정적 키워드 분석 (Supabase 대체)
+    private async analyzePositiveKeywordsD1(userId: string): Promise<string[]> {
+        const messages = await this.d1Storage.getRecentMessages(userId, 50);
+
+        const positiveKeywords = [
+            '시골', '어린시절', '가족', '엄마', '아빠', '형제', '자매',
+            '학교', '친구', '선생님', '고향', '집', '마당', '정원',
+            '봄', '여름', '가을', '겨울', '꽃', '나무', '바다', '산',
+            '음식', '밥', '국', '김치', '떡', '과자', '차', '커피',
+            '일', '직장', '회사', '동료', '취미', '운동', '노래',
+            '결혼', '신혼', '아이', '손자', '손녀', '명절', '생일',
+            '여행', '나들이', '시장', '병원', '교회', '절', '공원'
+        ];
+
+        const keywordCounts: { [key: string]: number } = {};
+        const userMessages = messages.filter(m => m.role === 'user');
+
+        // 사용자 메시지에서 키워드 빈도 계산
+        userMessages.forEach(message => {
+            positiveKeywords.forEach(keyword => {
+                if (message.content.includes(keyword)) {
+                    keywordCounts[keyword] = (keywordCounts[keyword] || 0) + 1;
+                }
+            });
+        });
+
+        // 빈도순으로 정렬하여 상위 키워드 반환
+        return Object.entries(keywordCounts)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 10)
+            .map(([keyword]) => keyword);
+    }
+
+    // D1 기반 주제 효과성 조회 (Supabase 대체)
+    private async getTopicEffectivenessD1(userId: string, keywords: string[]): Promise<number> {
+        const effectiveTopics = await this.d1Storage.getEffectiveTopics(userId, 100);
+
+        // 키워드와 일치하는 주제 찾기
+        const matchingTopic = effectiveTopics.find(topic =>
+            keywords.every(keyword => topic.topic_keywords.includes(keyword))
+        );
+
+        if (!matchingTopic) {
+            return 0.5; // 기본값: 50% 효과성
+        }
+
+        // 시도 횟수가 적으면 기본값에 가중치 적용
+        if (matchingTopic.total_count < 3) {
+            return (matchingTopic.success_rate + 0.5) / 2;
+        }
+
+        return matchingTopic.success_rate;
     }
 }
