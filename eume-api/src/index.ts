@@ -22,6 +22,28 @@ type Env = {
 	DB: D1Database;
 };
 
+// JWT 토큰 생성 함수 (단순한 구현)
+function generateJWTToken(payload: any): string {
+	const header = {
+		alg: 'HS256',
+		typ: 'JWT'
+	};
+
+	// Base64URL 인코딩 함수
+	function base64URLEncode(obj: any): string {
+		const str = typeof obj === 'string' ? obj : JSON.stringify(obj);
+		return btoa(str).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+	}
+
+	const encodedHeader = base64URLEncode(header);
+	const encodedPayload = base64URLEncode(payload);
+
+	// 간단한 서명 (실제 환경에서는 비밀키 사용)
+	const signature = base64URLEncode(`signature_${encodedHeader}_${encodedPayload}`);
+
+	return `${encodedHeader}.${encodedPayload}.${signature}`;
+}
+
 async function handleSignup(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
 	try {
 		console.log('🔍 회원가입 요청 수신:', {
@@ -339,8 +361,14 @@ async function handleLogin(request: Request, env: Env, corsHeaders: Record<strin
 			});
 		}
 
-		// Generate simple tokens (in production, use proper JWT)
-		const accessToken = crypto.randomUUID();
+		// Generate proper JWT tokens
+		const accessToken = generateJWTToken({
+			uid: user.id,
+			sub: user.username,
+			role: user.role,
+			iat: Math.floor(Date.now() / 1000),
+			exp: Math.floor(Date.now() / 1000) + 3600 // 1 hour
+		});
 		const refreshToken = crypto.randomUUID();
 
 		// Store tokens in KV for simple auth
@@ -1075,8 +1103,36 @@ async function handleImageAnalysis(request: Request, env: Env, corsHeaders: Reco
 		const visionResponse = await env.AI.run('@cf/llava-hf/llava-1.5-7b-hf', {
 			image: imageArray,
 			prompt:
-				'치매 환자 회상 치료용 사진 분석:\n\n1. 장소와 배경\n2. 계절과 날씨\n3. 등장인물 (나이, 성별, 표정, 관계)\n4. 활동과 상황\n5. 시대적 배경\n6. 감정적 분위기\n7. 주목할 만한 세부사항\n\n기억 유도에 도움이 될 구체적 정보를 포함하여 한국어로 상세 분석하세요.',
-			max_tokens: 768,
+				`이 사진을 자세히 분석하여 구체적인 정보를 제공해주세요:
+
+**장소와 환경**:
+- 어떤 곳인가요? (실내/실외, 집/공원/바다 등)
+- 주변에 무엇이 보이나요? (건물, 나무, 가구, 소품 등)
+- 분위기나 느낌은 어떤가요?
+
+**시간과 계절**:
+- 언제쯤 찍힌 것 같나요? (계절, 시간대)
+- 날씨는 어떠한가요?
+- 시대적 특징이 있나요? (옷차림, 스타일, 배경 등)
+
+**사람들**:
+- 누가 있나요? (성별, 대략적 나이, 몇 명)
+- 어떤 옷을 입고 있나요?
+- 표정이나 자세는 어떤가요?
+- 서로 어떤 관계처럼 보이나요?
+
+**활동과 상황**:
+- 무엇을 하고 있는 모습인가요?
+- 특별한 순간이나 행사 같나요?
+- 일상적인 모습인가요, 특별한 순간인가요?
+
+**눈에 띄는 세부사항**:
+- 기억에 남을 만한 특별한 것이 있나요?
+- 색깔, 물건, 표현 등에서 인상적인 부분
+- 그 시절의 특징을 보여주는 것들
+
+구체적이고 생생하게 한국어로 설명해주세요.`,
+			max_tokens: 1024,
 		});
 
 		const userId = request.headers.get('X-User-ID') || 'default-user';
