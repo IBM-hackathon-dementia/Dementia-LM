@@ -1117,20 +1117,10 @@ const ConversationPage: React.FC = () => {
         currentConversationId: Date.now().toString(),
       }));
 
-      // 첫 인사말
-      const welcomeMessage: ConversationMessage = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: `안녕하세요, ${auth.selectedPatient?.name}님! 오늘 함께 즐거운 이야기를 나누어보아요.`,
-        timestamp: new Date(),
-      };
-
       setSession(prev => ({
         ...prev,
-        conversationHistory: [welcomeMessage],
+        conversationHistory: [],
       }));
-
-      speakText(welcomeMessage.content);
     }
   };
 
@@ -1376,7 +1366,7 @@ const ConversationPage: React.FC = () => {
                     {isAnalyzingImage ? (
                       <div className="flex items-center space-x-3">
                         <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-                        <span className="text-lg font-medium text-blue-700">🔍 사진 분석 중...</span>
+                        <span className="text-lg font-medium text-blue-700">🔍 사진 분석 중입니다... <br />최대 1분 정도 소요됩니다!</span>
                       </div>
                     ) : (
                       <span className="text-lg font-medium text-blue-700">📷 현재 대화 중인 사진</span>
