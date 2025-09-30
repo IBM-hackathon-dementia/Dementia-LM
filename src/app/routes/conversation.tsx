@@ -529,6 +529,7 @@ const ConversationPage: React.FC = () => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoDescription, setPhotoDescription] = useState('');
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1142,6 +1143,7 @@ const ConversationPage: React.FC = () => {
     // 리포트 생성 시도 (대화 내용이 있는 경우에만)
     if (session.conversationHistory.length > 1 && auth.caregiver?.id) {
       try {
+        setIsGeneratingReport(true); // 로딩 표시 시작
         console.log('📊 리포트 생성 시작', {
           userId: auth.caregiver.id,
           conversationLength: session.conversationHistory.length,
@@ -1222,6 +1224,8 @@ const ConversationPage: React.FC = () => {
         console.error('❌ 리포트 생성 실패:', error);
         // 리포트 생성 실패해도 세션은 종료
         console.log('⚠️ 리포트 생성에 실패했지만 세션을 종료합니다');
+      } finally {
+        setIsGeneratingReport(false); // 로딩 표시 종료
       }
     } else {
       console.log('📊 리포트 생성 건너뜀: 대화 내용이 부족하거나 사용자 ID가 없음');
@@ -1726,8 +1730,19 @@ const ConversationPage: React.FC = () => {
           </div>
         )}
 
+                {/* 리포트 생성 로딩 표시 */}
+                {isGeneratingReport && (
+                  <div className="mt-8 text-center bg-blue-50 p-6 rounded-lg border-2 border-blue-200">
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+                      <p className="text-lg font-medium text-blue-700">리포트를 생성하고 있습니다...</p>
+                      <p className="text-sm text-blue-600">잠시만 기다려주세요</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* 대화 종료 버튼 (대화 중에만 표시) */}
-                {session.isActive && (
+                {session.isActive && !isGeneratingReport && (
                   <div className="mt-8 text-center">
                     <button
                       onClick={endSession}

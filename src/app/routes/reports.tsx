@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRecoilValue } from 'recoil';
 import { authState } from '../recoil/atoms';
-import { apiClient, UserReport, UserReportsResponse } from '../../lib/api';
+import { apiClient, UserReport } from '../../lib/api';
 
 // HTML 리포트 생성 함수 (conversation.tsx에서 복사)
 const generateReportHtml = (reportData: any, conversations: any[]) => {
@@ -309,7 +309,11 @@ const ReportsPage: React.FC = () => {
       // 로컬 스토리지에서 상세 리포트들 불러오기
       const localReports = JSON.parse(localStorage.getItem('generatedReports') || '[]');
       const userReports = localReports
-        .filter((report: any) => report.userId === auth.caregiver?.id)
+        .filter((report: any) =>
+          report.userId === auth.caregiver?.id &&
+          report.conversations &&
+          report.conversations.length > 1 // 실제 대화 내용이 있는 것만
+        )
         .map((report: any) => ({
           id: report.id,
           userId: report.userId,
@@ -325,23 +329,7 @@ const ReportsPage: React.FC = () => {
       console.log('📊 로컬 리포트 조회 완료, 개수:', userReports.length);
       setReports(userReports);
 
-      // API에서도 추가 리포트 조회 (필요시)
-      try {
-        const response: UserReportsResponse = await apiClient.getUserReports(auth.caregiver!.id);
-        const apiReports = response.reports || [];
-
-        // 중복 제거하여 병합
-        const allReports = [...userReports];
-        apiReports.forEach(apiReport => {
-          if (!allReports.find(localReport => localReport.id === apiReport.id)) {
-            allReports.push(apiReport);
-          }
-        });
-
-        setReports(allReports);
-      } catch (apiError) {
-        console.log('⚠️ API 리포트 조회 실패, 로컬 리포트만 표시:', apiError);
-      }
+      // API는 호출하지 않음 (더미 데이터 반환하므로)
 
     } catch (err) {
       console.error('❌ 리포트 조회 오류:', err);
@@ -381,34 +369,47 @@ const ReportsPage: React.FC = () => {
       setGeneratingPdf(reportId);
       console.log('📄 PDF 생성 시작, reportId:', reportId);
 
-      const response = await apiClient.generateReportPdf({
-        reportId,
-        userId: auth.caregiver!.id,
-        includeImages: true
-      });
-      console.log('📄 PDF 생성 응답:', response);
+      // 로컬 스토리지에서 상세 리포트 데이터 찾기
+      const localReports = JSON.parse(localStorage.getItem('generatedReports') || '[]');
+      const fullReport = localReports.find((report: any) => report.id === reportId);
 
-      // Handle PDF download
-      if (response.downloadUrl) {
-        // HTML 콘텐츠를 클라이언트에서 PDF로 변환하여 다운로드
-        const htmlContent = response.downloadUrl.startsWith('data:text/html')
-          ? decodeURIComponent(escape(atob(response.downloadUrl.split(',')[1])))
-          : null;
+      if (fullReport && fullReport.analysisData) {
+        // 로컬에 저장된 한국어 데이터로 HTML 생성
+        const reportHtml = generateReportHtml(fullReport.analysisData, fullReport.conversations || []);
 
-        if (htmlContent) {
-          // HTML을 PDF로 변환하여 다운로드
-          convertHtmlToPdfAndDownload(htmlContent, reportId);
-        } else if (response.downloadUrl.startsWith('data:application/pdf')) {
-          // PDF Data URL인 경우 직접 다운로드
-          const link = document.createElement('a');
-          link.href = response.downloadUrl;
-          link.download = `치매케어_리포트_${reportId}_${new Date().toLocaleDateString('ko-KR').replace(/\./g, '')}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else {
-          // 일반 URL인 경우 새 탭에서 열기
-          window.open(response.downloadUrl, '_blank');
+        // HTML을 PDF로 변환하여 다운로드
+        convertHtmlToPdfAndDownload(reportHtml, reportId);
+      } else {
+        // 로컬 데이터가 없는 경우 API 호출 (백엔드 영어 템플릿)
+        const response = await apiClient.generateReportPdf({
+          reportId,
+          userId: auth.caregiver!.id,
+          includeImages: true
+        });
+        console.log('📄 PDF 생성 응답:', response);
+
+        // Handle PDF download
+        if (response.downloadUrl) {
+          // HTML 콘텐츠를 클라이언트에서 PDF로 변환하여 다운로드
+          const htmlContent = response.downloadUrl.startsWith('data:text/html')
+            ? decodeURIComponent(escape(atob(response.downloadUrl.split(',')[1])))
+            : null;
+
+          if (htmlContent) {
+            // HTML을 PDF로 변환하여 다운로드
+            convertHtmlToPdfAndDownload(htmlContent, reportId);
+          } else if (response.downloadUrl.startsWith('data:application/pdf')) {
+            // PDF Data URL인 경우 직접 다운로드
+            const link = document.createElement('a');
+            link.href = response.downloadUrl;
+            link.download = `치매케어_리포트_${reportId}_${new Date().toLocaleDateString('ko-KR').replace(/\./g, '')}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } else {
+            // 일반 URL인 경우 새 탭에서 열기
+            window.open(response.downloadUrl, '_blank');
+          }
         }
       }
     } catch (err) {

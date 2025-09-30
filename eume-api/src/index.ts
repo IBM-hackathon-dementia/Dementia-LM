@@ -1103,48 +1103,70 @@ async function handleImageAnalysis(request: Request, env: Env, corsHeaders: Reco
 		const visionResponse = await env.AI.run('@cf/llava-hf/llava-1.5-7b-hf', {
 			image: imageArray,
 			prompt:
-				`이 사진을 자세히 분석하여 구체적인 정보를 제공해주세요:
+				`당신은 한국어로만 대답해야 합니다. 영어를 절대 사용하지 마세요.
 
-**장소와 환경**:
-- 어떤 곳인가요? (실내/실외, 집/공원/바다 등)
-- 주변에 무엇이 보이나요? (건물, 나무, 가구, 소품 등)
-- 분위기나 느낌은 어떤가요?
+이 사진을 보고 실제로 보이는 것만 설명하세요:
 
-**시간과 계절**:
-- 언제쯤 찍힌 것 같나요? (계절, 시간대)
-- 날씨는 어떠한가요?
-- 시대적 특징이 있나요? (옷차림, 스타일, 배경 등)
+1. 장소: 실내인가요, 실외인가요? 어떤 곳인가요?
+2. 물건: 어떤 물건들이 보이나요?
+3. 사람: 몇 명이 있나요? 무엇을 입고 있나요? 무엇을 하고 있나요?
+4. 색깔과 빛: 주요 색깔은 무엇인가요? 조명은 어떤가요?
+5. 분위기: 어떤 느낌이 드나요?
 
-**사람들**:
-- 누가 있나요? (성별, 대략적 나이, 몇 명)
-- 어떤 옷을 입고 있나요?
-- 표정이나 자세는 어떤가요?
-- 서로 어떤 관계처럼 보이나요?
+중요: 사진에 실제로 보이는 것만 말하세요. 추측하거나 확실하지 않은 것은 말하지 마세요.
 
-**활동과 상황**:
-- 무엇을 하고 있는 모습인가요?
-- 특별한 순간이나 행사 같나요?
-- 일상적인 모습인가요, 특별한 순간인가요?
-
-**눈에 띄는 세부사항**:
-- 기억에 남을 만한 특별한 것이 있나요?
-- 색깔, 물건, 표현 등에서 인상적인 부분
-- 그 시절의 특징을 보여주는 것들
-
-구체적이고 생생하게 한국어로 설명해주세요.
-사람과 대화하듯 자연스러운 문장으로 설명해주세요.`,
-			max_tokens: 1024,
+한국어로 자연스럽게 대화하듯이 설명하세요. 영어 단어는 절대 사용하지 마세요.`,
+			max_tokens: 512,
 		});
+
+		// 비전 응답 검증 및 정제
+		let analysisText = visionResponse.description || '사진을 분석했습니다.';
+
+		// 영어가 과도하게 섞인 경우 감지 (영어 비율 30% 이상)
+		const englishWords = analysisText.match(/[a-zA-Z]+/g) || [];
+		const totalWords = analysisText.split(/\s+/).length;
+		const englishRatio = englishWords.length / totalWords;
+
+		if (englishRatio > 0.3) {
+			console.log('⚠️ 영어 과다 감지, 기본 메시지로 대체');
+			analysisText = '이 사진에 담긴 소중한 순간을 함께 이야기해볼까요?';
+		}
+
+		// "Location:", "Objects:" 같은 영어 레이블 제거
+		analysisText = analysisText.replace(/^(Location|Objects|People|Colors|Atmosphere):\s*/gim, '');
+		analysisText = analysisText.replace(/\d+\.\s*(Location|Objects|People|Colors|lighting|Atmosphere):\s*/gi, '');
+
+		// 반복되는 단어 패턴 감지 (같은 단어가 5번 이상 연속)
+		const repeatingPattern = /(\S+)(\s+\1){4,}/g;
+		if (repeatingPattern.test(analysisText)) {
+			console.log('⚠️ 반복 패턴 감지, 기본 메시지로 대체');
+			analysisText = '이 사진에 담긴 소중한 순간을 함께 이야기해볼까요?';
+		}
+
+		// 너무 짧거나 비정상적인 출력 체크
+		if (analysisText.length < 10 || analysisText.length > 2000) {
+			console.log('⚠️ 비정상 길이 감지, 기본 메시지로 대체');
+			analysisText = '이 사진을 보시니 어떤 생각이 드시나요?';
+		}
+
+		// 숫자나 특수문자만 반복되는 경우
+		if (/^[\d\s.,!?]+$/.test(analysisText)) {
+			console.log('⚠️ 숫자/특수문자만 감지, 기본 메시지로 대체');
+			analysisText = '이 사진과 관련된 추억을 들려주세요.';
+		}
+
+		// 최종 정리
+		analysisText = analysisText.trim();
 
 		const userId = request.headers.get('X-User-ID') || 'default-user';
 		const d1Storage = new D1Storage(env.DB);
 
 		// D1 데이터베이스에 사진 세션 저장
-		await d1Storage.createPhotoSession(userId, visionResponse.description || '사진을 분석했습니다.', Date.now());
+		await d1Storage.createPhotoSession(userId, analysisText, Date.now());
 
 		return new Response(
 			JSON.stringify({
-				imageAnalysis: visionResponse.description || '사진을 분석했습니다.',
+				imageAnalysis: analysisText,
 			}),
 			{
 				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1424,10 +1446,12 @@ async function handleGetUserImages(request: Request, env: Env, corsHeaders: Reco
 
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
+		const origin = request.headers.get('Origin') || '*';
 		const corsHeaders = {
-			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Origin': origin,
 			'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 			'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-ID, X-Photo-Session, X-Image-Analysis, X-Trauma-Info, X-Text-Input, refreshToken',
+			'Access-Control-Allow-Credentials': 'true',
 			'Access-Control-Max-Age': '86400'
 		};
 
@@ -1549,7 +1573,8 @@ export default {
 					} else if (englishText.includes('good') || englishText.includes('nice') || englishText.includes('great')) {
 						userText = '좋아요';
 					} else {
-						userText = '잘 모르겠어요'; // 기본값
+						// 알 수 없는 영어가 인식된 경우 음성 인식 실패로 처리
+						throw new Error('음성을 인식하지 못했어요. 더 명확하게 한국어로 말씀해 주세요.');
 					}
 				} else {
 					userText = sttResponse.text.trim();
@@ -1771,20 +1796,20 @@ ${
 **환자가 기억에 어려움을 표현했습니다. 다음 전략으로 기억을 도와주세요:**
 
 기억 유도 전략:
-- 사진의 구체적 정보를 활용한 힌트 제공하기
-- "이 사진에서 파란색 바다가 보이네요. 바닷가에 가신 추억이 있으신가요?" 같이 사진 세부사항 활용
-- "사진 속 분이 빨간 옷을 입으셨는데, 누구신 것 같나요?" 처럼 시각적 힌트로 기억 유도
-- 위치, 날씨, 사람, 활동 등 사진의 구체적 요소를 하나씩 언급
-- 시대적 배경이나 계절 정보도 힌트로 활용
-- "1970년대쯤 찍힌 것 같은데..." "봄날 같아 보이는데..." 등으로 맥락 제공
+- **중요: 위에 제공된 사진 분석 결과에 실제로 명시된 내용만 사용하세요**
+- 사진 분석 결과에 없는 색깔, 사람, 장소는 절대 언급하지 마세요
+- 분석 결과의 구체적인 단어와 표현을 그대로 활용하세요
+- 예: 분석에 "나무"가 있으면 "나무"라고 말하고, 없으면 언급하지 마세요
+- 추측하거나 상상하지 말고, 분석 결과만 참조하세요
 - 한 번에 하나의 힌트만 제공하고 반응 기다리기`
 		: `
 사진 기반 대화 가이드라인:
-- 사진 속 세부사항을 언급하며 자연스럽게 질문하기
-- "이 사진을 보니..." "사진 속 ~가 보이는데..." 같은 표현 사용
+- **절대 규칙: 위에 제공된 사진 분석 결과에 명시된 내용만 언급하세요**
+- 분석 결과에 없는 것은 절대 말하지 마세요 (예: 분석에 "바다"가 없으면 바다 언급 금지)
+- "사진을 보니..." 라고 말할 때는 반드시 분석 결과의 실제 내용만 사용
 - 사진과 관련된 개인적 경험이나 추억 유도하기
 - 감정적 반응을 격려하고 지지하기
-- 사진 속 인물, 장소, 상황에 대한 열린 질문하기
+- 분석에서 확인된 내용만 기반으로 열린 질문하기
 - 긍정적인 기억과 감정에 집중하기`
 }`;
 			}

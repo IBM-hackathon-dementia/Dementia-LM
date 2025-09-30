@@ -97,7 +97,13 @@ const HomePage: React.FC = () => {
                             {(() => {
                                 // 로컬 스토리지에서 최근 리포트들 가져오기
                                 const savedReports = JSON.parse(localStorage.getItem('generatedReports') || '[]');
-                                const recentReports = savedReports.slice(-3).reverse(); // 최신 3개만
+                                // 사용자별 필터링 및 대화 내용이 있는 리포트만 표시
+                                const userReports = savedReports.filter((report: any) =>
+                                    report.userId === auth.caregiver?.id &&
+                                    report.conversations &&
+                                    report.conversations.length > 1
+                                );
+                                const recentReports = userReports.slice(-3).reverse(); // 최신 3개만
 
                                 if (recentReports.length === 0) {
                                     return (
